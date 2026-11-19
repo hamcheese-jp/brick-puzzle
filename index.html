@@ -23,11 +23,31 @@ button.yellow{background:var(--yellow);color:#222}button.green{background:var(--
 button.on{outline:3px solid var(--blue);outline-offset:1px}
 .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .bar .grow{flex:1;min-width:0}
-h1.logo{font-size:42px;line-height:1.1;text-align:center;margin:28px 0 6px;letter-spacing:2px;font-weight:900}
-.logo span{display:inline-block;padding:4px 10px;margin:3px;border-radius:8px;color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.25)}
-.tagline{text-align:center;color:var(--sub);margin-bottom:28px}
-.menu{display:grid;gap:14px;max-width:360px;margin:0 auto}
-.menu button{font-size:20px;padding:16px}
+.hero{position:relative;height:330px;margin:4px -4px 0;border-radius:20px;overflow:hidden;background:linear-gradient(#8fd0ff,#d9f0ff 70%,#bfe3a8 70%);box-shadow:0 6px 18px rgba(0,0,0,.15)}
+.titleview{position:absolute;inset:0}
+.titleview canvas{display:block;width:100%;height:100%}
+h1.logo{position:absolute;left:0;right:0;top:10px;font-size:40px;line-height:1.05;text-align:center;margin:0;letter-spacing:2px;font-weight:900;pointer-events:none}
+.logo span{display:inline-block;position:relative;padding:8px 10px 4px;margin:3px;border-radius:7px;color:#fff;box-shadow:inset 0 -5px 0 rgba(0,0,0,.25),0 5px 0 rgba(0,0,0,.25);animation:pop .6s cubic-bezier(.3,1.6,.5,1) both;text-shadow:0 2px 0 rgba(0,0,0,.25)}
+.logo span::before{content:"";position:absolute;left:50%;top:-7px;width:16px;height:8px;margin-left:-8px;border-radius:5px 5px 0 0;background:inherit;box-shadow:inset 0 2px 0 rgba(255,255,255,.35)}
+.logo span:nth-child(2){animation-delay:.06s}.logo span:nth-child(3){animation-delay:.12s}.logo span:nth-child(4){animation-delay:.18s}.logo span:nth-child(6){animation-delay:.3s}.logo span:nth-child(7){animation-delay:.36s}.logo span:nth-child(8){animation-delay:.42s}.logo span:nth-child(9){animation-delay:.5s}
+.logo .d3{background:linear-gradient(135deg,#ff5f6d,#ffc371);font-size:44px}
+@keyframes pop{0%{transform:translateY(-60px) scale(.6);opacity:0}100%{transform:none;opacity:1}}
+.nowbuild{position:absolute;left:12px;bottom:10px;background:rgba(255,255,255,.85);color:#333;border-radius:99px;padding:4px 12px;font-weight:800;font-size:14px}
+.tagline{text-align:center;color:var(--ink);font-size:19px;margin:16px 0 12px}
+.tagline b{color:var(--red)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 auto 18px;max-width:560px}
+.step{background:var(--panel);border-radius:14px;padding:10px 6px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;flex-direction:column;gap:2px}
+.step .ico{font-size:30px}.step b{font-size:14px}.step span{font-size:11px;color:var(--sub)}
+.menu{display:grid;gap:14px;max-width:380px;margin:0 auto}
+.menu button{font-size:21px;padding:14px 16px}
+.menu button.big{display:flex;flex-direction:column;align-items:center;box-shadow:0 5px 0 rgba(0,0,0,.25)}
+.menu button small{font-size:12px;font-weight:500;opacity:.9;margin-top:2px}
+.prog{max-width:380px;margin:20px auto 0}
+.progbar{height:12px;border-radius:99px;background:var(--line);overflow:hidden}
+.progbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#d01012,#f2cd37,#237841,#0055bf);transition:width .6s}
+body.inplay #bgmBtn{display:none}
+#bgmBtn{position:fixed;right:10px;bottom:10px;z-index:25;border-radius:99px;width:46px;height:46px;padding:0;font-size:20px}
+@media (max-width:480px){h1.logo{font-size:30px}.logo .d3{font-size:33px}.hero{height:290px}.step span{display:none}}
 .small{font-size:13px;color:var(--sub)}
 .center{text-align:center}
 .group-title{margin:18px 0 8px;font-weight:800}
@@ -49,13 +69,32 @@ h1.logo{font-size:42px;line-height:1.1;text-align:center;margin:28px 0 6px;lette
 .tray{grid-area:tray;min-height:0;overflow:auto;max-height:calc(100vh - 418px)}
 .freegrid .tray{max-height:calc(100vh - 86px)}
 @media (max-width:860px){
-  .playgrid{grid-template-columns:1fr;grid-template-rows:auto;grid-template-areas:"preview" "build" "tray"}
-  .freegrid{grid-template-areas:"build" "tray"}
-  .screen.wide{padding:8px 8px 32px}
-  .previewbox{height:28vh;height:28dvh;min-height:180px}
-  .buildbox{height:50vh;height:50dvh;min-height:280px}
-  .tray,.freegrid .tray{max-height:none}
+  .screen.wide{padding:6px 8px}
+  #play.active,#free.active{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}
+  .screen.wide>.bar{margin-bottom:6px;flex-wrap:nowrap;gap:6px}
+  .screen.wide>.bar button{padding:7px 9px;font-size:14px}
+  #stageName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  #stageTitle{white-space:nowrap}
+  .playgrid{flex:1;min-height:0;grid-template-columns:1fr;grid-template-rows:minmax(110px,26%) minmax(0,1fr) auto;grid-template-areas:"preview" "build" "tray";gap:6px}
+  .freegrid{grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"build" "tray"}
+  .previewbox,.buildbox{height:auto;min-height:0}
+  .tray,.freegrid .tray{max-height:none;padding:6px 8px;overflow:visible}
+  .tray .items{display:flex;overflow-x:auto;overflow-y:hidden;gap:6px;touch-action:pan-x;margin-top:6px;padding:2px 2px 6px}
+  .tray .items button{flex:0 0 auto;min-width:62px;min-height:56px}
+  .playgrid{grid-template-rows:minmax(100px,24%) minmax(0,1fr) auto}
+  #chips{display:inline}#chips .chip{font-size:11px;padding:1px 6px}
+  .tray .small{display:none}
+  .tray .mhelp{display:block}
+  .tools button{padding:6px 8px;font-size:13px}
+  .palette .sw{width:26px;height:26px;flex:0 0 auto}
+  .playgrid.freegrid{grid-template-rows:minmax(0,1fr) auto}
+  .tray .palette{flex-wrap:nowrap;overflow-x:auto;margin:6px 0 0;padding:3px}
+  .freegrid .tray .bar{margin-top:4px}
 }
+.mhelp{display:none;font-size:11px;color:var(--sub);margin-top:2px}
+.items button{touch-action:none}
+.tray.dropRemove{outline:3px dashed var(--red);outline-offset:-3px;background:#ffe3e3}
+.tray.dropRemove::after{content:"ここで指をはなすと外れます";display:block;text-align:center;color:var(--red);font-weight:800}
 .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;margin-top:8px}
 .items button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:6px 4px;min-height:66px}
 .items button .cnt{font-size:13px}
@@ -93,14 +132,23 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
 <div id="loadErr">3D表示ライブラリを読み込めませんでした。インターネットにつないでから開き直してください。</div>
 
 <section id="title" class="screen active">
-  <h1 class="logo"><span style="background:#d01012">ブ</span><span style="background:#0055bf">リ</span><span style="background:#f2cd37;color:#222">ッ</span><span style="background:#237841">ク</span><br><span style="background:#fe8a18">パ</span><span style="background:#8a5cc4">ズ</span><span style="background:#1b2a34">ル</span><span style="background:#6ec1e4">3D</span></h1>
-  <p class="tagline">見本の完成品をよく見て、同じものを組み立てよう！</p>
-  <div class="menu">
-    <button class="red" onclick="showSelect()">ステージ（100）</button>
-    <button class="blue" onclick="openFree()">フリースペース</button>
-    <button class="yellow" onclick="showGallery()">保存した作品</button>
+  <div class="hero">
+    <div id="titleView" class="titleview"></div>
+    <h1 class="logo"><span style="background:#d01012">ブ</span><span style="background:#0055bf">リ</span><span style="background:#f2cd37;color:#222">ッ</span><span style="background:#237841">ク</span><br><span style="background:#fe8a18">パ</span><span style="background:#8a5cc4">ズ</span><span style="background:#1b2a34">ル</span><span class="d3">3D</span></h1>
+    <div class="nowbuild" id="nowBuild"></div>
   </div>
-  <p class="center small" id="progressText" style="margin-top:22px"></p>
+  <p class="tagline"><b>見本</b>とおなじものを、<b>ブロック</b>でつくろう！</p>
+  <div class="steps">
+    <div class="step"><div class="ico">👀</div><b>① 見本を見る</b><span>くるくる回して形をチェック</span></div>
+    <div class="step"><div class="ico">🧱</div><b>② ピースを置く</b><span>タップやスライドで積み上げ</span></div>
+    <div class="step"><div class="ico">🎉</div><b>③ 完成！</b><span>そっくりできたらクリア</span></div>
+  </div>
+  <div class="menu">
+    <button class="red big" onclick="showSelect()">▶ ステージであそぶ<small>どうぶつ・たてもの など 100ステージ</small></button>
+    <button class="blue big" onclick="openFree()">🧱 じゆうに作る<small>フリースペースで好きなものを</small></button>
+    <button class="yellow big" onclick="showGallery()">🖼 作品を見る<small>保存した作品・SNSに投稿</small></button>
+  </div>
+  <div class="prog"><div class="progbar"><i id="progFill"></i></div><p class="center small" id="progressText"></p></div>
   <div class="bar" style="justify-content:center;margin-top:16px">
     <button onclick="exportData()">データを書き出す</button>
     <button onclick="$('importFile').click()">データを読み込む</button>
@@ -121,6 +169,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
     <span id="timer" class="small">0:00</span>
     <button id="hintBtn" onclick="hintBtn()">💡 ヒント</button>
     <button onclick="resetStage()">↺</button>
+    <button class="bgmMini" onclick="toggleBgm()">🔊</button>
   </div>
   <div class="playgrid">
     <div class="buildbox" id="playBuild"><div class="lbl">組み立て台</div>
@@ -135,7 +184,8 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
         <button onclick="undo()">↶ もどす</button>
       </div>
       <div class="items" id="invItems"></div>
-      <p class="small">ピースを選んで台やブロックをクリック／タップ。上の面→上に積む、横の面→横にくっつける、下の面→下にぶら下げる。ドラッグで視点回転、右クリックか「外す」でブロックを外す。</p>
+      <div class="mhelp">タップ:置く ／ ダブルタップ:外す ／ 長押し:回す ／ ピースを上へスライド:置く ／ ブロックを下へスライド:外す ／ 選んだピースをもう一度タップ:向き</div>
+      <p class="small">ピースを選んで台やブロックをクリック（またはピースを台へドラッグ）。上の面→上に積む、横の面→横にくっつける、下の面→下にぶら下げる。選んだピースをもう一度クリックで向きを変える。何もない所をドラッグで視点回転、右クリックか「外す」でブロックを外す。</p>
     </div>
   </div>
 </section>
@@ -146,6 +196,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
     <input type="text" id="freeTitle" class="grow" placeholder="作品のタイトル" maxlength="30">
     <button class="green" onclick="saveWork()">保存</button>
     <button class="blue" onclick="shareFree()">投稿</button>
+    <button class="bgmMini" onclick="toggleBgm()">🔊</button>
   </div>
   <div class="playgrid freegrid">
     <div class="buildbox" id="freeBuild"><div class="ovl"><button onclick="frameView(BV)">視点リセット</button></div></div>
@@ -158,6 +209,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
       </div>
       <div class="palette" id="colorBtns"></div>
       <div class="items" id="shapeItems"></div>
+      <div class="mhelp">タップ:置く ／ ダブルタップ:外す ／ 長押し:回す ／ ブロックを下へスライド:外す</div>
       <div class="bar" style="margin-top:10px">
         <select id="freeSize" onchange="freeResize(+this.value)"><option value="8">8×8</option><option value="12">12×12</option><option value="16" selected>16×16</option><option value="24">24×24</option></select>
         <select id="freePlate" onchange="S.plate=this.value;setPlate(BV,S.W,S.D,S.plate);autosave()">
@@ -213,7 +265,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
 const PAL={R:'#d01012',B:'#0055bf',Y:'#f2cd37',G:'#237841',W:'#f4f4f4',K:'#1b2a34',O:'#fe8a18',L:'#6ec1e4',P:'#f7a1c4',N:'#7c503a',A:'#a0a5a9',M:'#a5ca18',V:'#8a5cc4',T:'#e4cd9e'};
 const RAND_COLS=['R','B','Y','G','O','L','P','V','M','N','W','K'];
 const $=id=>document.getElementById(id);
-function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));window.scrollTo(0,0);if(id==='title')updateProgressText()}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===id));window.scrollTo(0,0);document.body.classList.toggle('inplay',id==='play'||id==='free');if(id==='title')updateProgressText()}
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1800)}
 function hideModal(id){$(id).classList.remove('show')}
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
@@ -245,6 +297,7 @@ function makeView(bg){
   scene.add(new THREE.HemisphereLight(0xffffff,0x6b7080,.75));
   const dl=new THREE.DirectionalLight(0xffffff,.75);dl.castShadow=true;dl.shadow.mapSize.set(1024,1024);dl.shadow.bias=-.0005;scene.add(dl);scene.add(dl.target);
   const controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.12;controls.maxPolarAngle=Math.PI*.495;
+  controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_ROTATE};
   const root=new THREE.Group();scene.add(root);
   return{renderer,scene,camera,controls,root,dl,W:0,D:0,boxes:[],bg:null,maxY:1};
 }
@@ -285,7 +338,8 @@ function frameView(v,maxY){
 }
 function renderLoop(){
   requestAnimationFrame(renderLoop);
-  for(const v of [BV,PV]){if(!v||!v.el||!v.el.offsetParent)continue;
+  animateTV(performance.now());
+  for(const v of [BV,PV,TV]){if(!v||!v.el||!v.el.offsetParent)continue;
     const w=v.el.clientWidth,h=v.el.clientHeight;
     if(w!==v.cw||h!==v.ch){v.cw=w;v.ch=h;v.renderer.setSize(w,h,false);v.camera.aspect=w/h;v.camera.updateProjectionMatrix();
       if(v.W){const off=v.camera.position.clone().sub(v.controls.target);const d=fitDist(v);off.setLength(d);v.camera.position.copy(v.controls.target).add(off);v.controls.maxDistance=d*3}}
@@ -471,7 +525,7 @@ function selDims(){if(!S.sel)return null;let w,d;if(S.mode==='stage'){const p=pa
 function selColor(){return S.mode==='stage'?parseKey(S.sel).c:S.sel.color}
 function snapshotUndo(){S.undo.push(JSON.stringify({b:S.bricks,i:S.inv}));if(S.undo.length>150)S.undo.shift()}
 function undo(){if(!S.undo.length)return;const u=JSON.parse(S.undo.pop());S.bricks=u.b;S.inv=u.i;refresh();sfx(330,.05)}
-function rotateSel(){S.rot=!S.rot;updateGhost();sfx(700,.03)}
+function rotateSel(){S.rot=!S.rot;updateGhost();sfx(700,.03);if(S.mode==='stage')buildInvUI();else if(S.mode==='free')buildFreeUI()}
 function toggleErase(){S.erase=!S.erase;$('eraseBtn').classList.toggle('on',S.erase);$('eraseBtn2').classList.toggle('on',S.erase);updateGhost()}
 function refresh(){
   setBricks(BV,S.bricks);
@@ -489,8 +543,8 @@ function hitTest(e){
 }
 function placementFrom(e){
   const h=hitTest(e);if(!h)return null;
-  if(S.erase)return h.object.userData.brick?{remove:h.object.userData.brick}:null;
-  const dims=selDims();if(!dims)return null;
+  if(S.erase&&!dragSpec)return h.object.userData.brick?{remove:h.object.userData.brick}:null;
+  const dims=dragSpec?[dragSpec.w,dragSpec.d]:selDims();if(!dims)return null;
   const p=BV.root.worldToLocal(h.point.clone());const n=h.face.normal;const hb=h.object.userData.brick;
   let [w,d]=dims;
   if(w>S.W||d>S.D){[w,d]=[d,w];if(w>S.W||d>S.D)return null}  // はみ出すときは自動で向きを変える
@@ -509,8 +563,9 @@ function placementFrom(e){
   }
   let free=y>=0;
   if(fixed&&free){const V=voxels(S.bricks);for(let i=0;i<w&&free;i++)for(let j=0;j<d&&free;j++)if(V.has((x+i)+','+y+','+(z+j)))free=false}
-  const ok=free&&y<24&&(S.mode!=='stage'||(S.inv[S.sel]||0)>0);
-  return{x,y:Math.max(0,y),z,w,d,c:selColor(),ok};
+  const invOk=dragSpec?(!dragSpec.key||(S.inv[dragSpec.key]||0)>0):(S.mode!=='stage'||(S.inv[S.sel]||0)>0);
+  const ok=free&&y<24&&invOk;
+  return{x,y:Math.max(0,y),z,w,d,c:dragSpec?dragSpec.c:selColor(),ok};
 }
 const ghostMat={ok:new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:.55,depthWrite:false}),bad:new THREE.MeshStandardMaterial({color:0xff3030,transparent:true,opacity:.45,depthWrite:false}),rm:new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:.6,depthWrite:false,emissive:0xff2222,emissiveIntensity:.6})};
 function updateGhost(){
@@ -555,21 +610,153 @@ function setupInput(){
   cv.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y)>6;const b=down.b;down=null;if(moved)return;
     if(S.mode==='stage'&&G&&G.done)return;const ev={clientX:e.clientX,clientY:e.clientY};
     if(e.pointerType==='mouse'||b===2||S.erase){clearPending();actAt(ev,b===2);if(e.pointerType==='mouse'){lastEv=ev;updateGhost()}return}
-    lastEv=ev;const p=placementFrom(ev);
-    if(p&&!p.remove&&samePl(p,pending)){clearPending();actAt(ev,false);return}
-    pending=p&&!p.remove?p:null;updateGhost();placeBtn.style.display=pending&&pending.ok?'':'none';
-    if(pending&&!pending.ok)toast('そこには置けません');});
-  BV.controls.addEventListener('change',()=>{if(lastEv&&!down){updateGhost();if(pending&&hover&&!hover.remove)pending=hover}});
+    // タッチ：何もない所（台）をタップ → すぐ置く
+    actAt(ev,false);lastEv=null;updateGhost();});  BV.controls.addEventListener('change',()=>{if(lastEv&&!down){updateGhost();if(pending&&hover&&!hover.remove)pending=hover}});
   document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
     if(e.key==='r'||e.key==='R')rotateSel();
     if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo()}});
+}
+
+// ============ 指でのドラッグ操作 ============
+// ・ピース置き場から上へスライド → 台に置く
+// ・置いたブロックをスライド → 動かす ／ 下（ピース置き場）へスライド → 外す
+// ・置いたブロックをタップ → その場で90°回転
+let dragSpec=null,drag=null;
+const floatEl=document.createElement('div');floatEl.style.cssText='position:fixed;left:0;top:0;pointer-events:none;z-index:30;display:none;transform:translate(-50%,-50%);filter:drop-shadow(0 4px 6px rgba(0,0,0,.35))';document.body.appendChild(floatEl);
+function trayEl(){return document.querySelector('.screen.active .tray')}
+function startTrayDrag(e,spec){if(S.mode==='stage'&&G&&G.done)return;drag={kind:'tray',spec,pid:e.pointerId,sx:e.clientX,sy:e.clientY,moved:false,touch:e.pointerType!=='mouse'}}
+function rotateBrick(b){
+  if(b.w===b.d){sfx(700,.03);return}
+  if(!canRemove(b)){toast('上にブロックがのっているので回せません');return}
+  const nb={...b,w:b.d,d:b.w};
+  nb.x=Math.max(0,Math.min(S.W-nb.w,Math.round(b.x+b.w/2-nb.w/2)));nb.z=Math.max(0,Math.min(S.D-nb.d,Math.round(b.z+b.d/2-nb.d/2)));
+  const V=voxels(S.bricks.filter(c=>c!==b));
+  for(let i=0;i<nb.w;i++)for(let j=0;j<nb.d;j++)if(V.has((nb.x+i)+','+nb.y+','+(nb.z+j))){toast('そこでは回せません');return}
+  snapshotUndo();S.bricks[S.bricks.indexOf(b)]=nb;sfx(700,.04);refresh();
+}
+function dragPoint(e){return{clientX:e.clientX,clientY:e.clientY-(drag&&drag.touch?56:0)}}
+function dragZone(pt){
+  const t=trayEl();if(t){const r=t.getBoundingClientRect();if(pt.clientX>=r.left&&pt.clientX<=r.right&&pt.clientY>=r.top&&pt.clientY<=r.bottom)return 'tray'}
+  const r=BV.renderer.domElement.getBoundingClientRect();
+  if(pt.clientX>=r.left&&pt.clientX<=r.right&&pt.clientY>=r.top&&pt.clientY<=r.bottom)return 'field';
+  return pt.clientY>r.bottom?'tray':'out';
+}
+function beginDragVisual(){
+  clearPending();
+  if(drag.kind==='brick'){
+    if(!canRemove(drag.orig)){toast('上にブロックがのっているので動かせません');drag=null;return false}
+    snapshotUndo();S.bricks=S.bricks.filter(b=>b!==drag.orig);setBricks(BV,S.bricks);
+  }
+  dragSpec=drag.spec;floatEl.innerHTML='';floatEl.appendChild(brickIcon(drag.spec.d>drag.spec.w?drag.spec.d:drag.spec.w,Math.min(drag.spec.w,drag.spec.d),drag.spec.c,60));floatEl.style.display='block';
+  return true;
+}
+function dragMove(e){
+  const pt=dragPoint(e),zone=dragZone(pt);drag.zone=zone;
+  floatEl.style.left=pt.clientX+'px';floatEl.style.top=pt.clientY+'px';
+  floatEl.style.display=zone==='field'?'none':'block';floatEl.style.opacity=zone==='tray'&&drag.kind==='brick'?'.55':'1';
+  const t=trayEl();if(t)t.classList.toggle('dropRemove',zone==='tray'&&drag.kind==='brick');
+  lastEv=zone==='field'?pt:null;updateGhost();
+}
+function endDrag(e,cancel){
+  const d=drag;drag=null;floatEl.style.display='none';const t=trayEl();if(t)t.classList.remove('dropRemove');
+  if(!d)return;
+  clearTimeout(d.lp);
+  if(!d.moved){dragSpec=null;if(!cancel&&d.kind==='brick'&&!d.longDone)brickTap(d.orig,{clientX:e.clientX,clientY:e.clientY});return}
+  const p=!cancel&&d.zone==='field'?hover:null;dragSpec=null;lastEv=null;
+  if(p&&!p.remove&&p.ok){
+    if(d.kind==='tray'){snapshotUndo();if(d.spec.key){S.inv[d.spec.key]--;S.sel=d.spec.key}}
+    S.bricks.push({x:p.x,y:p.y,z:p.z,w:p.w,d:p.d,c:p.c});sfx(440+p.y*40,.06);
+  }else if(d.kind==='brick'){
+    if(!cancel&&d.zone==='tray'){if(S.mode==='stage'){const k=invKey(d.orig.w,d.orig.d,d.orig.c);S.inv[k]=(S.inv[k]||0)+1}sfx(300,.06)}
+    else{S.bricks.push(d.orig);S.undo.pop();if(!cancel&&d.zone==='field')toast('そこには置けません')}
+  }else if(!cancel&&d.zone==='field')toast('そこには置けません');
+  refresh();
+}
+window.addEventListener('pointermove',e=>{
+  if(!drag||e.pointerId!==drag.pid)return;
+  if(!drag.moved){if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<9)return;drag.moved=true;if(!beginDragVisual())return}
+  dragMove(e);
+});
+window.addEventListener('pointerup',e=>{if(drag&&e.pointerId===drag.pid)endDrag(e,false)});
+window.addEventListener('pointercancel',e=>{if(drag&&e.pointerId===drag.pid)endDrag(e,true)});
+// 指で置いたブロックに触れたときは視点回転より先にブロック操作
+document.addEventListener('pointerdown',e=>{
+  if(!BV||e.target!==BV.renderer.domElement||e.pointerType==='mouse'||S.erase||drag)return;
+  if(S.mode==='stage'&&G&&G.done)return;
+  const h=hitTest(e);const b=h&&h.object.userData.brick;if(!b)return;
+  e.stopPropagation();
+  drag={kind:'brick',orig:b,spec:{w:b.w,d:b.d,c:b.c},pid:e.pointerId,sx:e.clientX,sy:e.clientY,moved:false,touch:true};
+  const dd=drag;dd.lp=setTimeout(()=>{if(drag===dd&&!dd.moved){dd.longDone=true;rotateBrick(b);if(navigator.vibrate)navigator.vibrate(20)}},480); // 長押しで回転
+},true);
+// ブロックをタップ：1回 → その上に置く ／ 2回（ダブルタップ）→ 外す
+let lastTap=null;
+function brickTap(b,ev){
+  const now=Date.now();
+  if(lastTap&&lastTap.b===b&&now-lastTap.t<320){clearTimeout(lastTap.timer);lastTap=null;removeBrick(b);return}
+  if(lastTap)clearTimeout(lastTap.timer);
+  lastTap={b,t:now,timer:setTimeout(()=>{lastTap=null;if(S.bricks.includes(b))actAt(ev,false)},300)};
+}
+function removeBrick(b){
+  if(!S.bricks.includes(b))return;
+  if(!canRemove(b)){toast('上にブロックがのっているので外せません');sfx(160,.12);return}
+  snapshotUndo();S.bricks=S.bricks.filter(c=>c!==b);
+  if(S.mode==='stage'){const k=invKey(b.w,b.d,b.c);S.inv[k]=(S.inv[k]||0)+1}
+  sfx(300,.06);refresh();
 }
 
 // ============ 進行状況・ステージ選択 ============
 let PROG=lsGet('brick3d_progress',{cleared:{}});
 function saveProg(){lsSet('brick3d_progress',PROG)}
 function unlocked(n){return n===1||!!PROG.cleared[n-1]||!!PROG.cleared[n]}
-function updateProgressText(){$('progressText').textContent=`クリア ${Object.keys(PROG.cleared).length} / ${N_STAGE} ステージ`}
+function updateProgressText(){const c=Object.keys(PROG.cleared).length;$('progressText').textContent=`クリア ${c} / ${N_STAGE} ステージ`;$('progFill').style.width=(c/N_STAGE*100)+'%'}
+
+// ============ タイトルの3D演出（作品が組み上がる） ============
+let TV=null,tvIdx=0,tvTimer=null;
+const TV_MODELS=['キリン','おしろ','ロケット','ねこ','ひまわり','でんしゃ','とうだい','ペンギン','おうち','ロボット'];
+function titleShow(){
+  if(!TV)return;const name=TV_MODELS[tvIdx%TV_MODELS.length];tvIdx++;
+  const mi=MODELS.findIndex(m=>m.name===name);const M=buildModel(mi,0,mulberry32(mi*131+5));
+  const bricks=tileVoxels(M,mulberry32(mi*7)).sort((a,b)=>a.y-b.y||a.z-b.z||a.x-b.x);
+  setPlate(TV,M.W+2,M.D+2,'#237841');TV.root.position.set(-(M.W+2)/2,0,-(M.D+2)/2);
+  setBricks(TV,bricks.map(b=>({...b,x:b.x+1,z:b.z+1})));frameView(TV,M.top);
+  TV.anim={start:performance.now(),step:Math.min(120,2200/bricks.length)};
+  $('nowBuild').textContent=`${CAT_ICON[M.cat]} いま作っているもの：${M.name}`;
+}
+function startTitleAnim(){if(!TV||tvTimer)return;titleShow();tvTimer=setInterval(()=>{if($('title').classList.contains('active'))titleShow()},5200)}
+function animateTV(now){
+  if(!TV||!TV.anim||!TV.bg)return;const {start,step}=TV.anim;
+  TV.bg.children.forEach((g,i)=>{const t=(now-start-i*step)/260;if(g.userData.ty==null)g.userData.ty=g.position.y;
+    g.visible=t>0;g.position.y=g.userData.ty+Math.max(0,1-Math.min(1,t))*5})
+}
+
+// ============ BGM（かんたんなループ曲） ============
+const BGM={on:lsGet('brick3d_bgm',true),playing:false,timer:null,step:0,next:0,master:null};
+const MEL=[72,null,76,79,77,76,74,null,72,74,76,72,74,null,67,null,72,null,76,79,81,79,77,76,74,76,77,74,72,null,null,null,
+           76,null,77,79,81,null,79,77,76,77,79,76,74,null,71,null,72,74,76,77,79,81,79,77,76,74,72,74,72,null,null,null];
+const BASS=[48,45,41,43,48,45,43,48,45,41,43,48,41,43,48,48];
+const mf=m=>440*Math.pow(2,(m-69)/12);
+function bgmNote(f,t,dur,type,vol){const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(BGM.master);o.start(t);o.stop(t+dur+.05)}
+function bgmTick(){
+  const SP=.16;
+  while(BGM.next<audioCtx.currentTime+.25){
+    const s=BGM.step%MEL.length,t=BGM.next;
+    if(MEL[s]!=null)bgmNote(mf(MEL[s]),t,SP*1.6,'triangle',.06);
+    if(s%4===0){const b=BASS[(s/4)%BASS.length];bgmNote(mf(b),t,SP*3.5,'square',.025);bgmNote(mf(b+12),t+SP*2,SP*1.5,'square',.015)}
+    if(s%2===1)bgmNote(4000,t,.03,'square',.006);
+    BGM.step++;BGM.next+=SP;
+  }
+}
+function bgmStart(){
+  if(!BGM.on||BGM.playing)return;
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();audioCtx.resume();
+    if(!BGM.master){BGM.master=audioCtx.createGain();BGM.master.gain.value=.8;BGM.master.connect(audioCtx.destination)}
+    BGM.playing=true;BGM.next=audioCtx.currentTime+.1;BGM.timer=setInterval(bgmTick,60)}catch(e){}
+}
+function bgmStop(){BGM.playing=false;clearInterval(BGM.timer)}
+function syncBgmBtns(){const t=BGM.on?'🔊':'🔇';const b=$('bgmBtn');if(b)b.textContent=t;document.querySelectorAll('.bgmMini').forEach(x=>x.textContent=t)}
+function toggleBgm(){BGM.on=!BGM.on;lsSet('brick3d_bgm',BGM.on);syncBgmBtns();if(BGM.on)bgmStart();else bgmStop()}
+document.addEventListener('pointerdown',()=>bgmStart());
+document.addEventListener('visibilitychange',()=>{if(!audioCtx)return;if(document.hidden)audioCtx.suspend();else if(BGM.playing)audioCtx.resume()});
 const GROUPS=[['かんたん',1,20],['ふつう',21,40],['むずかしい',41,60],['とてもむずかしい',61,80],['おに',81,100]];
 function showSelect(){
   const box=$('stageGroups');box.innerHTML='';
@@ -613,9 +800,11 @@ function buildInvUI(){
   const box=$('invItems');box.innerHTML='';
   const keys=Object.keys(S.inv).sort((a,b)=>parseKey(a).c.localeCompare(parseKey(b).c)||a.localeCompare(b));
   for(const k of keys){const p=parseKey(k);const btn=document.createElement('button');
-    btn.appendChild(brickIcon(p.b,p.a,p.c,52));const s=document.createElement('span');s.className='cnt';s.textContent='×'+S.inv[k];btn.appendChild(s);
+    const rot=k===S.sel&&S.rot;
+    btn.appendChild(rot?brickIcon(p.a,p.b,p.c,52):brickIcon(p.b,p.a,p.c,52));const s=document.createElement('span');s.className='cnt';s.textContent='×'+S.inv[k];btn.appendChild(s);
     btn.disabled=!(S.inv[k]>0);if(k===S.sel&&!S.erase)btn.classList.add('on');
-    btn.onclick=()=>{S.sel=k;if(S.erase)toggleErase();buildInvUI();updateGhost()};box.appendChild(btn)}
+    btn.addEventListener('pointerdown',e=>{if(e.button!==0)return;const r=k===S.sel&&S.rot;startTrayDrag(e,{w:r?p.b:p.a,d:r?p.a:p.b,c:p.c,key:k})});
+    btn.onclick=()=>{if(S.sel===k&&!S.erase){rotateSel();buildInvUI();return}S.sel=k;S.rot=false;if(S.erase)toggleErase();buildInvUI();updateGhost()};box.appendChild(btn)}
 }
 function isHidden(x,y,z){const T=G.tvox;return T.has((x+1)+','+y+','+z)&&T.has((x-1)+','+y+','+z)&&T.has(x+','+y+','+(z+1))&&T.has(x+','+y+','+(z-1))&&T.has(x+','+(y+1)+','+z)}
 function isWin(){
@@ -731,8 +920,11 @@ function buildFreeUI(){
   const cb=$('colorBtns');cb.innerHTML='';
   for(const k of FCOLORS){const b=document.createElement('button');b.className='sw'+(k===S.sel.color?' on':'');b.style.background=PAL[k];b.onclick=()=>{S.sel.color=k;if(S.erase)toggleErase();buildFreeUI();updateGhost();autosave()};cb.appendChild(b)}
   const sb=$('shapeItems');sb.innerHTML='';
-  FSHAPES.forEach(([a,b],i)=>{const btn=document.createElement('button');btn.appendChild(brickIcon(b,a,S.sel.color,52));const s=document.createElement('span');s.className='cnt';s.textContent=a+'×'+b;btn.appendChild(s);
-    if(i===S.sel.shape&&!S.erase)btn.classList.add('on');btn.onclick=()=>{S.sel.shape=i;if(S.erase)toggleErase();buildFreeUI();updateGhost();autosave()};sb.appendChild(btn)});
+  FSHAPES.forEach(([a,b],i)=>{const btn=document.createElement('button');const rot=i===S.sel.shape&&S.rot;
+    btn.appendChild(rot?brickIcon(a,b,S.sel.color,52):brickIcon(b,a,S.sel.color,52));const s=document.createElement('span');s.className='cnt';s.textContent=a+'×'+b;btn.appendChild(s);
+    if(i===S.sel.shape&&!S.erase)btn.classList.add('on');
+    btn.addEventListener('pointerdown',e=>{if(e.button!==0)return;const r=i===S.sel.shape&&S.rot;startTrayDrag(e,{w:r?b:a,d:r?a:b,c:S.sel.color})});
+    btn.onclick=()=>{if(S.sel.shape===i&&!S.erase){rotateSel();buildFreeUI();return}S.sel.shape=i;S.rot=false;if(S.erase)toggleErase();buildFreeUI();updateGhost();autosave()};sb.appendChild(btn)});
 }
 function freeClear(){if(!S.bricks.length||!confirm('全部消しますか？'))return;snapshotUndo();S.bricks=[];refresh()}
 function freeResize(n){snapshotUndo();S.W=S.D=n;S.bricks=S.bricks.filter(b=>b.x+b.w<=n&&b.z+b.d<=n);setPlate(BV,n,n,S.plate);frameView(BV);refresh()}
@@ -778,6 +970,9 @@ if(!window.THREE||!THREE.OrbitControls){$('loadErr').style.display='block';$('ti
 else{
   studGeo=new THREE.CylinderGeometry(.3,.3,.2,18);
   BV=makeView(0xdcecf7);PV=makeView(0xfff4dc);setupInput();renderLoop();updateProgressText();
+  TV=makeView(0xbfe3ff);TV.scene.background=null;TV.renderer.setClearColor(0x000000,0);TV.controls.autoRotate=true;TV.controls.autoRotateSpeed=2.4;TV.controls.enableZoom=false;TV.controls.enablePan=false;
+  attach(TV,$('titleView'));startTitleAnim();
+  const bb=document.createElement('button');bb.id='bgmBtn';bb.textContent=BGM.on?'🔊':'🔇';bb.title='BGM';bb.onclick=e=>{e.stopPropagation();toggleBgm()};document.body.appendChild(bb);syncBgmBtns();
 }
 </script>
 </body>
