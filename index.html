@@ -21,6 +21,7 @@
 <meta name="twitter:image" content="https://hamcheese-jp.github.io/brick-puzzle/ogp.png">
 <meta name="theme-color" content="#d01012">
 <link rel="privacy-policy" href="privacy.html">
+<script src="/ads-banner.js" defer></script>
 <style>
 :root{--bg:#fbf5e6;--panel:#ffffff;--ink:#222;--sub:#6b6458;--line:#e4dac3;--red:#d01012;--blue:#0055bf;--yellow:#f2cd37;--green:#237841}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1c1e23;--panel:#2a2d34;--ink:#eee;--sub:#a9a9a9;--line:#3a3e47}}
@@ -190,6 +191,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
     <button class="yellow big" onclick="showGallery()">🖼 作品を見る<small>保存した作品・SNSに投稿</small></button>
   </div>
   <div class="prog"><div class="progbar"><i id="progFill"></i></div><p class="center small" id="progressText"></p></div>
+  <div class="hc-banner"></div>
   <div class="bar" style="justify-content:center;margin-top:16px">
     <button onclick="exportData()">データを書き出す</button>
     <button onclick="$('importFile').click()">データを読み込む</button>
@@ -202,6 +204,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
 <section id="select" class="screen">
   <div class="bar"><button onclick="show('title')">← もどる</button><b class="grow">ステージをえらぶ</b><span class="small" id="selCount"></span></div>
   <div id="stageGroups"></div>
+  <div class="hc-banner"></div>
 </section>
 
 <section id="play" class="screen wide">
