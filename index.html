@@ -4,6 +4,22 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>ブリックパズル3D</title>
+<meta name="description" content="見本の3D作品をよく見て、ブロックで同じものを組み立てるパズルゲーム。どうぶつ・しょくぶつ・たてもの・のりものなど全100ステージ！フリースペースで自由に作ってSNSに投稿もできます。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ブリックパズル3D">
+<meta property="og:title" content="ブリックパズル3D｜見本とおなじものをブロックでつくろう！">
+<meta property="og:description" content="見本の3D作品をよく見て、ブロックで同じものを組み立てるパズル。どうぶつ・たてもの・のりものなど全100ステージ！">
+<meta property="og:url" content="https://hamcheese-jp.github.io/brick-puzzle/">
+<meta property="og:image" content="https://hamcheese-jp.github.io/brick-puzzle/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ブリックパズル3D：ブロックで作ったねこ・おしろ・キリン・ロケット">
+<meta property="og:locale" content="ja_JP">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ブリックパズル3D｜見本とおなじものをブロックでつくろう！">
+<meta name="twitter:description" content="見本の3D作品をよく見て、ブロックで同じものを組み立てるパズル。全100ステージ！">
+<meta name="twitter:image" content="https://hamcheese-jp.github.io/brick-puzzle/ogp.png">
+<meta name="theme-color" content="#d01012">
 <style>
 :root{--bg:#fbf5e6;--panel:#ffffff;--ink:#222;--sub:#6b6458;--line:#e4dac3;--red:#d01012;--blue:#0055bf;--yellow:#f2cd37;--green:#237841}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1c1e23;--panel:#2a2d34;--ink:#eee;--sub:#a9a9a9;--line:#3a3e47}}
@@ -1029,7 +1045,7 @@ function hint(){
   S.bricks.push({...tb});G.hints++;sfx(880,.08);refresh();
 }
 function snapshot(){if(ghost){BV.root.remove(ghost);ghost=null}BV.renderer.render(BV.scene,BV.camera);return BV.renderer.domElement}
-function shareClear(){const t=PROG.cleared[G.n];shareImage(G.shot,`ブリックパズル3D ステージ${G.n}「${G.name}」を${fmtTime(t?t.t:0)}でクリアしたよ！ #ブリックパズル`)}
+function shareClear(){const t=PROG.cleared[G.n];shareImage(G.shot,`ブリックパズル3D ステージ${G.n}「${G.name}」を${fmtTime(t?t.t:0)}でクリアしたよ！ #ブリックパズル ${GAME_URL}`)}
 
 // ============ 広告 ============
 // provider: 'demo' = デモ画面 / 'h5' = Google H5 Games Ads（<head>のタグ設定と審査が必要） / 'off' = 広告なし
@@ -1075,6 +1091,7 @@ function composeShare(src,title,sub){
   x.textAlign='right';x.font='bold 14px system-ui,sans-serif';x.fillStyle='#d01012';x.fillText('#ブリックパズル',W-12,cv.height-10);
   return cv;
 }
+const GAME_URL='https://hamcheese-jp.github.io/brick-puzzle/';
 let SHARE={blob:null,text:''};
 function shareImage(cv,text){
   cv.toBlob(async blob=>{SHARE={blob,text};
@@ -1128,7 +1145,7 @@ function saveWork(){
   if(lsSet('brick3d_works',works)){FD.id=data.id;autosave();toast('保存しました！')}
 }
 function shareFree(){dropCursor();if(!S.bricks.length){toast('ブロックを置いてから投稿してね');return}lastEv=null;updateGhost();const t=$('freeTitle').value.trim()||'むだい';
-  shareImage(composeShare(snapshot(),t,'ブリックパズル3Dで作ったよ'),`ブリックパズル3Dで「${t}」を作ったよ！ #ブリックパズル`)}
+  shareImage(composeShare(snapshot(),t,'ブリックパズル3Dで作ったよ'),`ブリックパズル3Dで「${t}」を作ったよ！ #ブリックパズル ${GAME_URL}`)}
 function showGallery(){
   const works=getWorks(),box=$('worksList');box.innerHTML='';$('noWorks').style.display=works.length?'none':'block';
   for(const w of works){const d=document.createElement('div');d.className='work';
@@ -1138,7 +1155,7 @@ function showGallery(){
     const bs=document.createElement('div');bs.className='btns';
     const mk=(l,cls,fn)=>{const b=document.createElement('button');b.textContent=l;if(cls)b.className=cls;b.onclick=fn;bs.appendChild(b)};
     mk('開く','blue',()=>{FD={W:w.W,D:w.D,bricks:w.bricks,plate:w.plate,title:w.title,id:w.id,color:FD.color,shape:FD.shape};lsSet('brick3d_draft',FD);openFree()});
-    mk('投稿','',()=>{const im=new Image();im.onload=()=>shareImage(composeShare(im,w.title,'ブリックパズル3Dで作ったよ'),`ブリックパズル3Dで「${w.title}」を作ったよ！ #ブリックパズル`);im.src=w.thumb});
+    mk('投稿','',()=>{const im=new Image();im.onload=()=>shareImage(composeShare(im,w.title,'ブリックパズル3Dで作ったよ'),`ブリックパズル3Dで「${w.title}」を作ったよ！ #ブリックパズル ${GAME_URL}`);im.src=w.thumb});
     mk('削除','',()=>{if(confirm(`「${w.title}」を削除しますか？`)){lsSet('brick3d_works',getWorks().filter(x=>x.id!==w.id));if(FD.id===w.id)FD.id=null;showGallery()}});
     d.appendChild(bs);box.appendChild(d)}
   show('gallery');
