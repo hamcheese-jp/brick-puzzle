@@ -1271,7 +1271,7 @@ if(!window.THREE||!THREE.OrbitControls){$('loadErr').style.display='block';$('ti
 else{
   studGeo=new THREE.CylinderGeometry(.3,.3,.2,18);
   BV=makeView(0xdcecf7);PV=makeView(0xfff4dc);setupInput();renderLoop();updateProgressText();
-  TV=makeView(0xbfe3ff);TV.scene.background=null;TV.renderer.setClearColor(0x000000,0);TV.controls.autoRotate=true;TV.controls.autoRotateSpeed=2.4;TV.controls.enableZoom=false;TV.controls.enablePan=false;
+  TV=makeView(0x9fd6ff); // 空の色（3Dの背景）TV.controls.autoRotate=true;TV.controls.autoRotateSpeed=2.4;TV.controls.enableZoom=false;TV.controls.enablePan=false;
   attach(TV,$('titleView'));startTitleAnim();
   const bb=document.createElement('button');bb.id='bgmBtn';bb.textContent=BGM.on?'🔊':'🔇';bb.title='BGM';bb.onclick=e=>{e.stopPropagation();toggleBgm()};document.body.appendChild(bb);syncBgmBtns();
 }
