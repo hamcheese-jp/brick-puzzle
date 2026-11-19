@@ -123,6 +123,12 @@ body.inplay #bgmBtn{display:none}
 .ctl .placebig:disabled{background:#999;opacity:.8}
 .ctl .hlabel{background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:800;border-radius:99px;padding:3px 8px}
 .ctl.blockmode .pad{visibility:hidden}
+/* スマホ：ボタンなしで遊ぶ（ブロックは手前のテーブルに散らばっている） */
+body.touchmode .ctl,body.touchmode .ctl.show{display:none!important}
+body.touchmode .modesw{display:none!important}
+body.touchmode .buildbox .ovl{display:none}
+body.touchmode #play .tray{display:none}
+body.touchmode .gesthint{top:8px!important}
 .modesw,.gesthint{display:none}
 body.touchmode .modesw{display:flex;position:absolute;left:8px;top:8px;z-index:4;background:rgba(255,255,255,.85);border-radius:12px;padding:3px;gap:3px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .modesw button{padding:7px 10px;font-size:14px;box-shadow:none;background:transparent;color:#333;border-radius:9px}
@@ -318,6 +324,7 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 function shade(hex,amt){const c=parseInt(hex.slice(1),16);const f=v=>Math.max(0,Math.min(255,Math.round(amt<0?v*(1+amt):v+(255-v)*amt)));return`rgb(${f(c>>16)},${f(c>>8&255)},${f(c&255)})`}
 function fmtTime(s){s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 let audioCtx=null;
+function buzz(ms){try{if(navigator.vibrate&&(!navigator.userActivation||navigator.userActivation.hasBeenActive))navigator.vibrate(ms)}catch(e){}} // ふるえる（さわったあとだけ）
 function sfx(f=520,d=.06){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.frequency.value=f;o.type='square';g.gain.setValueAtTime(.05,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+d);o.connect(g).connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+d)}catch(e){}}
 // ブロックの上から見たアイコン
 function brickIcon(w,d,c,max=56){
@@ -375,14 +382,14 @@ function frameView(v,maxY){
   if(maxY!=null)v.maxY=Math.max(1,maxY);const my=v.maxY;
   const size=Math.max(v.W,v.D,my*H);
   const dir=new THREE.Vector3(.62,.78,.95).normalize();const dist=fitDist(v);
-  v.controls.target.set(0,my*H*.4,0);v.camera.position.copy(v.controls.target).addScaledVector(dir,dist);v.controls.update();
+  v.controls.target.set(0,my*H*.4,v.shiftZ||0);v.camera.position.copy(v.controls.target).addScaledVector(dir,dist);v.controls.update();
   v.controls.minDistance=2;v.controls.maxDistance=dist*3;
   const sc=v.dl.shadow.camera,e=size*.9+2;sc.left=-e;sc.right=e;sc.top=e;sc.bottom=-e;sc.near=1;sc.far=size*6+40;sc.updateProjectionMatrix();
   v.dl.position.set(size*.5+3,size*1.4+10,size*.8+4);
 }
 function renderLoop(){
   requestAnimationFrame(renderLoop);
-  animateTV(performance.now());
+  animateTV(performance.now());if(flying.length)animateFlying(performance.now());
   for(const v of [BV,PV,TV]){if(!v||!v.el||!v.el.offsetParent)continue;
     const w=v.el.clientWidth,h=v.el.clientHeight;
     if(w!==v.cw||h!==v.ch){v.cw=w;v.ch=h;v.renderer.setSize(w,h,false);v.camera.aspect=w/h;v.camera.updateProjectionMatrix();
@@ -623,12 +630,12 @@ function topAt(x,z){let t=0;for(const b of S.bricks)if(x>=b.x&&x<b.x+b.w&&z>=b.z
 function selDims(){if(!S.sel)return null;let w,d;if(S.mode==='stage'){const p=parseKey(S.sel);w=p.a;d=p.b}else{[w,d]=FSHAPES[S.sel.shape]}return S.rot?[d,w]:[w,d]}
 function selColor(){return S.mode==='stage'?parseKey(S.sel).c:S.sel.color}
 function snapshotUndo(){S.undo.push(JSON.stringify({b:S.bricks,i:S.inv}));if(S.undo.length>150)S.undo.shift()}
-function undo(){if(CUR&&CUR.orig){restoreOrig();CUR=null;refresh();return}if(!S.undo.length)return;const u=JSON.parse(S.undo.pop());S.bricks=u.b;S.inv=u.i;refresh();sfx(330,.05)}
+function undo(){if(CUR){returnHeld();CUR=null;refresh();return}if(!S.undo.length)return;const u=JSON.parse(S.undo.pop());S.bricks=u.b;S.inv=u.i;refresh();sfx(330,.05)}
 function rotateSel(){if(touchMode&&CUR){rotateCur();return}S.rot=!S.rot;updateGhost();sfx(700,.03);if(S.mode==='stage')buildInvUI();else if(S.mode==='free')buildFreeUI()}
 function toggleErase(){S.erase=!S.erase;$('eraseBtn').classList.toggle('on',S.erase);$('eraseBtn2').classList.toggle('on',S.erase);updateGhost()}
 function refresh(){
   setBricks(BV,S.bricks);
-  if(S.mode==='stage'){buildInvUI();checkWin()}else autosave();
+  if(S.mode==='stage'){syncPile();drawPile();buildInvUI();checkWin()}else autosave();
   updateGhost();drawCursor();
 }
 
@@ -638,6 +645,7 @@ let hover=null,lastEv=null,down=null,ghost=null;
 function hitTest(e){
   const cv=BV.renderer.domElement,r=cv.getBoundingClientRect();
   ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,BV.camera);
+  BV.root.updateMatrixWorld(true); // 作り直した直後のブロックも正しい位置で当たり判定する
   return ray.intersectObjects([BV.plateMesh,...BV.boxes],false)[0]||null;
 }
 function placementFrom(e){
@@ -705,7 +713,7 @@ ctl.innerHTML=`<div class="pad"><button data-m="f" style="grid-area:1/2">▲</bu
 <div class="acts"><span class="hlabel" id="hLabel"></span><button data-a="place" class="green placebig" id="placeBig">✓ 置く</button>
 <button data-a="rot" class="rotbig" title="回転">⟳ 回す</button>
 <div class="g3"><button data-a="cancel" id="cancelBtn" style="grid-column:1/4">✕</button></div></div>`;
-const ctlHint=document.createElement('div');ctlHint.className='ctlhint';ctlHint.textContent='↓ 下のピースをタップしてね';
+const ctlHint=document.createElement('div');ctlHint.className='ctlhint';ctlHint.textContent='👇 手前のブロックをタップして持とう';
 ctl.addEventListener('pointerdown',e=>e.stopPropagation());
 ctl.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!CUR)return;
   if(t.dataset.m)moveCur(t.dataset.m);
@@ -722,7 +730,7 @@ function curState(c){
   for(let i=0;i<c.w;i++)for(let j=0;j<c.d;j++){const x=c.x+i,z=c.z+j;
     if(V.has(x+','+y+','+z))free=false;
     if(V.has(x+','+(y-1)+','+z))con=true} // 実物と同じ：下のブロックに少しでも乗っていること
-  const invOk=!c.key||!!c.orig||(S.inv[c.key]||0)>0;
+  const invOk=!c.key||!!c.orig||!!c.unit||(S.inv[c.key]||0)>0;
   return{x:c.x,y:Math.max(0,y),z:c.z,w:c.w,d:c.d,c:c.c,free,con,invOk,ok:free&&con&&invOk&&y<24};
 }
 function clampCur(){if(CUR.w>S.W||CUR.d>S.D)[CUR.w,CUR.d]=[CUR.d,CUR.w];CUR.x=Math.max(0,Math.min(S.W-CUR.w,CUR.x));CUR.z=Math.max(0,Math.min(S.D-CUR.d,CUR.z))}
@@ -744,7 +752,7 @@ function drawCursor(){
 }
 function restoreOrig(){if(CUR&&CUR.orig){S.bricks.push(CUR.orig);CUR.orig=null;S.undo.pop()}}
 function setCursor(spec,pos){
-  restoreOrig();
+  if(CUR)returnHeld();
   const prev=pos||lastCurPos;
   CUR={w:spec.w,d:spec.d,c:spec.c,key:spec.key||null,x:0,z:0,yOff:0,orig:null};
   if(prev){CUR.x=prev.x;CUR.z=prev.z}else{CUR.x=Math.floor((S.W-CUR.w)/2);CUR.z=Math.floor((S.D-CUR.d)/2)}
@@ -769,21 +777,23 @@ function placeCur(){
   if(!CUR.orig)snapshotUndo();
   S.bricks.push({x:st.x,y:st.y,z:st.z,w:st.w,d:st.d,c:st.c});
   const wasPick=!!CUR.orig;CUR.orig=null;
-  if(CUR.key&&!wasPick)S.inv[CUR.key]--;
-  lastCurPos={x:CUR.x,z:CUR.z};sfx(440+st.y*40,.07);if(navigator.vibrate)navigator.vibrate(12);
-  if(wasPick||(CUR.key&&!(S.inv[CUR.key]>0)))CUR=null;else CUR.yOff=0;
+  const fromPile=!!CUR.unit;
+  if(CUR.key&&!wasPick&&!fromPile)S.inv[CUR.key]--; // 山から取ったものは、取ったときに数えてある
+  lastCurPos={x:CUR.x,z:CUR.z};sfx(440+st.y*40,.07);buzz(12);
+  if(wasPick||fromPile||(CUR.key&&!(S.inv[CUR.key]>0)))CUR=null;else CUR.yOff=0;
   refresh();
 }
 function cancelCur(){
   if(!CUR)return;
   if(CUR.orig){if(S.mode==='stage'){S.inv[CUR.key]=(S.inv[CUR.key]||0)+1}CUR.orig=null;sfx(300,.06)}
+  else if(CUR.unit)returnHeld();
   CUR=null;refresh();
 }
 function pickUp(b){
   if(!canRemove(b)){toast('上にブロックがのっているので持ち上げられません');sfx(160,.12);return false}
-  restoreOrig();snapshotUndo();S.bricks=S.bricks.filter(c=>c!==b);
+  if(CUR){returnHeld();CUR=null}snapshotUndo();S.bricks=S.bricks.filter(c=>c!==b);
   CUR={w:b.w,d:b.d,c:b.c,key:S.mode==='stage'?invKey(b.w,b.d,b.c):null,x:b.x,z:b.z,yOff:0,orig:b};
-  CUR.yOff=b.y-dropAt(CUR);if(navigator.vibrate)navigator.vibrate(20);sfx(800,.05);refresh();return true;
+  CUR.yOff=b.y-dropAt(CUR);buzz(20);sfx(800,.05);refresh();return true;
 }
 // 指の位置 → 仮置きブロックの位置（いつも、そのマスのいちばん上に乗せる）
 function moveCurToHit(h){
@@ -807,6 +817,8 @@ function setupInput(){
   cv.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){lastEv=null;updateGhost()}});
   cv.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y)>6;const b=down.b;down=null;if(moved)return;
     if(S.mode==='stage'&&G&&G.done)return;const ev={clientX:e.clientX,clientY:e.clientY};
+    // パソコン：散らばったブロックをクリック → そのピースを選ぶ
+    if(e.pointerType==='mouse'&&b!==2&&!S.erase&&S.mode==='stage'){const u=hitPile(ev);if(u){S.sel=u.key;S.rot=!!u.rot;buildInvUI();lastEv=ev;updateGhost();sfx(800,.04);return}}
     if(e.pointerType==='mouse'||b===2||S.erase){clearPending();actAt(ev,b===2);if(e.pointerType==='mouse'){lastEv=ev;updateGhost()}return}
     // タッチ（視点モード）：タップ → 仮置きブロックをそこへ移動（仮置きがなければ、ブロックを持ち上げる）
     if(ctrlMode==='camera')touchTap(ev);});
@@ -890,46 +902,146 @@ function setCtrlMode(m){
   ctrlMode=m;if(BV)BV.controls.touches.ONE=m==='block'?null:THREE.TOUCH.ROTATE;
   modeSw.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
   ctl.classList.toggle('blockmode',m==='block');
-  gestHint.textContent=m==='block'?'スワイプ:移動　タップ:置く　ダブルタップ:回す　長押し:持ち上げ　2本指:視点':'ドラッグ:視点を回す　2本指:ズーム　タップ:そこへ移動';
+  gestHint.textContent='ブロックをタップ:持つ　なぞる:運ぶ　タップ:置く　ダブルタップ:回す　はらう:投げる　2本指:視点';
 }
 function gestEnd(){if(gest){clearTimeout(gest.timer);gest=null}}
 function hitCursor(pt){if(!curMesh)return false;const cv=BV.renderer.domElement,r=cv.getBoundingClientRect();
   ndc.set((pt.clientX-r.left)/r.width*2-1,-(pt.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,BV.camera);
   return ray.intersectObjects(curMesh.children.filter(c=>c.isMesh),false).length>0}
-// ブロックモードの1本指ジェスチャー
+// ============ 散らばったブロック（ステージのピース） ============
+// 台の手前のテーブルに、ピースがランダムに散らばっている。1個ずつが本物のブロックのように取れる
+function clearFlying(){for(const f of flying)BV.root.remove(f.g);flying.length=0}
+function makePile(){
+  clearFlying();
+  const units=[];
+  for(const k of Object.keys(S.inv).sort())for(let i=0;i<S.inv[k];i++){const p=parseKey(k);units.push({key:k,w:p.a,d:p.b,c:p.c,taken:false})}
+  const rng=mulberry32(G.n*97+3);
+  for(let i=units.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[units[i],units[j]]=[units[j],units[i]]}
+  let x=.3,z=STAGE_PLATE+1.4,rowD=0;
+  for(const u of units){
+    u.rot=rng()<.5;const w=u.rot?u.d:u.w,d=u.rot?u.w:u.d;
+    if(x+w>STAGE_PLATE-.2){x=.3;z+=rowD+.7;rowD=0}
+    u.x=x+rng()*.35;u.z=z+rng()*.35;u.yaw=(rng()-.5)*.5;
+    x+=w+.55+rng()*.5;rowD=Math.max(rowD,d);
+  }
+  G.pile=units;G.pileDepth=z+rowD-STAGE_PLATE;
+}
+// 手持ち数（S.inv）と、テーブルに見えているブロックの数をそろえる（ヒント・もどす のあとなど）
+function syncPile(){
+  if(!G||!G.pile)return;
+  const by={};for(const u of G.pile)(by[u.key]=by[u.key]||[]).push(u);
+  for(const k in by){
+    const list=by[k],want=Math.max(0,S.inv[k]||0);
+    let avail=list.filter(u=>!u.taken);
+    while(avail.length>want){const u=avail.pop();u.taken=true}
+    const back=list.filter(u=>u.taken&&!(CUR&&CUR.unit===u));
+    while(avail.length<want&&back.length){const u=back.pop();u.taken=false;avail.push(u)}
+  }
+}
+function drawPile(){
+  if(BV.pileGroup)BV.root.remove(BV.pileGroup);BV.pileGroup=null;BV.pileBoxes=[];
+  if(S.mode!=='stage'||!G||!G.pile)return;
+  const g=new THREE.Group();
+  for(const u of G.pile){if(u.taken||u.flying)continue;
+    const w=u.rot?u.d:u.w,d=u.rot?u.w:u.d;
+    const outer=new THREE.Group();outer.position.set(u.x+w/2,-.3,u.z+d/2);outer.rotation.y=u.yaw;
+    const m=brickMesh({x:0,y:0,z:0,w,d,c:u.c});m.position.set(-w/2,0,-d/2);m.children[0].userData={unit:u};
+    outer.add(m);g.add(outer);BV.pileBoxes.push(m.children[0]);
+  }
+  BV.root.add(g);BV.pileGroup=g;
+}
+function setTable(on){
+  if(BV.table){BV.root.remove(BV.table);BV.table=null}
+  if(!on)return;
+  const depth=STAGE_PLATE+(G.pileDepth||0)+6;
+  const t=new THREE.Mesh(new THREE.PlaneGeometry(STAGE_PLATE+12,depth),new THREE.MeshStandardMaterial({color:'#d8b58a',roughness:.85}));
+  t.rotation.x=-Math.PI/2;t.position.set(STAGE_PLATE/2,-.31,depth/2-3);t.receiveShadow=true;BV.root.add(t);BV.table=t;
+}
+function hitPile(pt){
+  if(!BV.pileBoxes||!BV.pileBoxes.length)return null;
+  const cv=BV.renderer.domElement,r=cv.getBoundingClientRect();
+  ndc.set((pt.clientX-r.left)/r.width*2-1,-(pt.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,BV.camera);
+  BV.root.updateMatrixWorld(true);
+  const h=ray.intersectObjects(BV.pileBoxes,false)[0];return h?h.object.userData.unit:null;
+}
+// 持っているブロックを手からはなす（山から取ったものは山へ、持ち上げたものは元の場所へ）
+function returnHeld(){
+  if(!CUR)return;
+  if(CUR.orig)restoreOrig();
+  else if(CUR.unit){CUR.unit.taken=false;S.inv[CUR.key]=(S.inv[CUR.key]||0)+1}
+}
+function pickFromPile(u){
+  const prev=CUR?{x:CUR.x,z:CUR.z}:lastCurPos;
+  if(CUR){returnHeld();CUR=null}
+  u.taken=true;S.inv[u.key]=(S.inv[u.key]||0)-1;
+  const w=u.rot?u.d:u.w,d=u.rot?u.w:u.d;
+  CUR={w,d,c:u.c,key:u.key,unit:u,x:0,z:0,yOff:0,orig:null};
+  if(prev){CUR.x=prev.x;CUR.z=prev.z}else{CUR.x=Math.floor((S.W-w)/2);CUR.z=Math.floor((S.D-d)/2)}
+  clampCur();S.sel=u.key;sfx(800,.05);buzz(12);refresh();
+}
+// さっとはらって投げる → 山へもどる（持ち上げた台のブロックも、外して山へ）
+const flying=[];
+function throwHeld(vx,vy){
+  if(!CUR)return;
+  const st=curState(CUR),c=CUR;
+  const from=new THREE.Vector3(st.x,st.y*H,st.z);
+  let unit=null;
+  if(c.unit){unit=c.unit;unit.taken=false;S.inv[c.key]=(S.inv[c.key]||0)+1}
+  else if(c.orig){c.orig=null;if(S.mode==='stage'){S.inv[c.key]=(S.inv[c.key]||0)+1;syncPile();unit=G.pile.find(u=>u.key===c.key&&!u.taken&&!u.flying)}}
+  CUR=null;
+  const g=brickMesh({x:0,y:0,z:0,w:st.w,d:st.d,c:st.c});g.position.copy(from);BV.root.add(g);
+  const to=unit?new THREE.Vector3(unit.x,-.3,unit.z):from.clone().add(new THREE.Vector3(vx*8,-4,vy*8));
+  if(unit)unit.flying=true;
+  const dur=unit?480:420;
+  flying.push({g,from,to,t0:performance.now(),dur,unit,spin:(Math.random()-.5)*6});
+  setTimeout(()=>animateFlying(performance.now()),dur+80); // 画面が止まっていても、必ず山に戻す
+  sfx(240,.09);buzz(8);refresh();
+}
+function animateFlying(now){
+  for(let i=flying.length-1;i>=0;i--){const f=flying[i];const t=Math.min(1,(now-f.t0)/f.dur);
+    f.g.position.lerpVectors(f.from,f.to,t);f.g.position.y+=Math.sin(Math.PI*t)*3;f.g.rotation.y=f.spin*t;
+    if(t>=1){BV.root.remove(f.g);flying.splice(i,1);if(f.unit){f.unit.flying=false;drawPile();sfx(520,.03)}}}
+}
+
+// ============ スマホの操作（ボタンなし。本物のブロック遊びのように） ============
+// 散らばったブロックをタップ → 持つ ／ なぞる → 運ぶ ／ タップ → 置く ／ ダブルタップ → 回す
+// さっとはらう → 投げて山へもどす ／ 置いたブロックをタップ → 持ち上げる ／ 2本指 → 視点（回す・拡大縮小）
 document.addEventListener('pointerdown',e=>{
-  if(!BV||e.target!==BV.renderer.domElement||e.pointerType==='mouse'||ctrlMode!=='block')return;
+  if(!BV||e.target!==BV.renderer.domElement||e.pointerType==='mouse')return;
   touchPts.add(e.pointerId);
-  if(touchPts.size>1){gestEnd();return} // 2本指は視点操作
+  if(touchPts.size>1){gestEnd();return} // 2本指は視点
   if(S.mode==='stage'&&G&&G.done)return;
-  const pt={clientX:e.clientX,clientY:e.clientY};
-  gest={pid:e.pointerId,sx:e.clientX,sy:e.clientY,lx:e.clientX,ly:e.clientY,moved:false,long:false,
-    timer:setTimeout(()=>{if(!gest||gest.moved)return;gest.long=true;
-      if(CUR&&hitCursor(pt)){rotateCur();return}
-      const h=hitTest(pt),b=h&&h.object.userData.brick;
-      if(b)pickUp(b);else if(CUR)rotateCur()},450)};
+  const now=performance.now();
+  gest={pid:e.pointerId,sx:e.clientX,sy:e.clientY,t:now,moved:false,pts:[{x:e.clientX,y:e.clientY,t:now}]};
 },true);
 window.addEventListener('pointermove',e=>{
   if(!gest||e.pointerId!==gest.pid)return;
-  if(!gest.moved&&Math.hypot(e.clientX-gest.sx,e.clientY-gest.sy)>10){gest.moved=true;clearTimeout(gest.timer)}
-  if(!gest.moved||!CUR)return;
-  const STEP=30;let dx=e.clientX-gest.lx,dy=e.clientY-gest.ly;
-  while(Math.abs(dx)>=STEP||Math.abs(dy)>=STEP){
-    if(Math.abs(dx)>=Math.abs(dy)){const s=Math.sign(dx);moveCur(s>0?'r':'l');gest.lx+=s*STEP;dx-=s*STEP}
-    else{const s=Math.sign(dy);moveCur(s<0?'f':'b');gest.ly+=s*STEP;dy-=s*STEP}
-  }
+  const now=performance.now();gest.pts.push({x:e.clientX,y:e.clientY,t:now});if(gest.pts.length>10)gest.pts.shift();
+  if(!gest.moved&&Math.hypot(e.clientX-gest.sx,e.clientY-gest.sy)>10)gest.moved=true;
+  if(gest.moved&&CUR&&touchPts.size<2){const h=hitTest({clientX:e.clientX,clientY:e.clientY-50});if(h)moveCurToHit(h)}
 });
 const gestUp=e=>{
   touchPts.delete(e.pointerId);
   if(!gest||e.pointerId!==gest.pid)return;const g=gest;gestEnd();
-  if(e.type==='pointercancel'||g.moved||g.long)return;
+  if(e.type==='pointercancel')return;
   if(S.mode==='stage'&&G&&G.done)return;
-  if(CUR){ // タップ:置く ／ ダブルタップ:回す
-    const now=Date.now();
-    if(tapWait&&now-tapWait.t<280){clearTimeout(tapWait.timer);tapWait=null;rotateCur();return}
-    tapWait={t:now,timer:setTimeout(()=>{tapWait=null;placeCur()},280)};return}
-  const h=hitTest({clientX:e.clientX,clientY:e.clientY}),b=h&&h.object.userData.brick;
-  if(b)pickUp(b);else cursorFromSel();
+  const now=performance.now();
+  if(g.moved){
+    if(!CUR)return;
+    // はなす直前の速さが速ければ「投げた」
+    const p0=g.pts.find(p=>now-p.t<=110)||g.pts[0];const dt=Math.max(16,now-p0.t);
+    const vx=(e.clientX-p0.x)/dt,vy=(e.clientY-p0.y)/dt;
+    if(Math.hypot(vx,vy)>1.1)throwHeld(vx,vy);
+    return;
+  }
+  const pt={clientX:e.clientX,clientY:e.clientY};
+  if(CUR){
+    if(tapWait&&now-tapWait.t<300){clearTimeout(tapWait.timer);tapWait=null;rotateCur();return} // ダブルタップ：回す
+    const u=hitPile(pt);if(u){pickFromPile(u);return} // 別のブロックに持ちかえ
+    tapWait={t:now,timer:setTimeout(()=>{tapWait=null;placeCur()},300)};return} // タップ：置く
+  const u=hitPile(pt);if(u){pickFromPile(u);return}
+  const h=hitTest(pt),b=h&&h.object.userData.brick;
+  if(b)pickUp(b);else if(S.mode==='free')cursorFromSel();
 };
 window.addEventListener('pointerup',gestUp);window.addEventListener('pointercancel',gestUp);
 
@@ -1033,6 +1145,7 @@ function startStage(n){
   G.tvox=voxels(G.bricks);G.targets=makeTargets(G);
   S={mode:'stage',W:STAGE_PLATE,D:STAGE_PLATE,bricks:[],inv:{...G.inv},sel:null,rot:false,erase:false,undo:[],plate:'#a0a5a9'};
   S.sel=Object.keys(S.inv).sort()[0];
+  makePile();
   $('stageTitle').textContent=`ステージ ${n}`;$('stageName').textContent=`「${G.name}」`;
   $('previewLbl').textContent=`${CAT_ICON[G.cat]||''} 見本：${G.name}`;
   const ch=[G.cat,`ピース ${Object.values(G.inv).reduce((a,b)=>a+b,0)}`,`高さ ${G.top}`];if(G.decoys)ch.push(`ダミー ${G.decoys}`);if(G.mono)ch.push('単色');
@@ -1041,9 +1154,11 @@ function startStage(n){
   show('play');
   attach(BV,$('playBuild'));attach(PV,$('playPreview'));
   setPlate(BV,S.W,S.D,S.plate);setPlate(PV,G.W,G.D,S.plate);setBricks(PV,G.bricks);
-  BV.fitW=Math.min(S.W,Math.max(G.W,G.D)+4);BV.fitD=BV.fitW; // 最初は作品のまわりに寄った画角
+  setTable(true);
+  // 最初の画角：作品を作るあたりと、手前に散らばったブロックの両方が入るように
+  BV.fitW=Math.min(S.W,Math.max(G.W,G.D)+5);BV.fitD=BV.fitW+G.pileDepth*.6;BV.shiftZ=(S.D/2+1.4+G.pileDepth/2)*.5;
   frameView(BV,G.top);frameView(PV,G.top);PV.controls.autoRotate=true;$('autoBtn').textContent='⏸ 回転';
-  refresh();if(touchMode)cursorFromSel();
+  refresh();
   clearInterval(timerH);timerH=setInterval(()=>{if(G&&!G.done)$('timer').textContent=fmtTime((Date.now()-G.start)/1000)},500);$('timer').textContent='0:00';
 }
 function leavePlay(){clearInterval(timerH);showSelect()}
@@ -1120,7 +1235,7 @@ function nextStage(){
 }
 function hint(){
   if(!G||G.done)return;
-  if(CUR&&CUR.orig){restoreOrig();CUR=null}
+  if(CUR){returnHeld();CUR=null}
   const P=voxels(S.bricks);
   const bp=bestPlacement(),T=G.targets[bp.r];
   const placed=T.bricks.map(b=>({...b,x:b.x+bp.ox,z:b.z+bp.oz}));
@@ -1209,7 +1324,7 @@ function autosave(){if(S.mode!=='free')return;FD={W:S.W,D:S.D,bricks:S.bricks,pl
 function openFree(){
   S={mode:'free',W:FD.W,D:FD.D,bricks:JSON.parse(JSON.stringify(FD.bricks)),inv:null,sel:{shape:FD.shape??2,color:FD.color||'R'},rot:false,erase:false,undo:[],plate:FD.plate};
   $('freeTitle').value=FD.title||'';$('freeSize').value=S.W;$('freePlate').value=S.plate;$('eraseBtn2').classList.remove('on');
-  show('free');attach(BV,$('freeBuild'));setPlate(BV,S.W,S.D,S.plate);BV.fitW=BV.fitD=null;frameView(BV,4);buildFreeUI();refresh();if(touchMode)cursorFromSel();
+  show('free');attach(BV,$('freeBuild'));setPlate(BV,S.W,S.D,S.plate);BV.fitW=BV.fitD=null;BV.shiftZ=0;clearFlying();setTable(false);drawPile();frameView(BV,4);buildFreeUI();refresh();if(touchMode)cursorFromSel();
 }
 function dropCursor(){if(CUR){restoreOrig();CUR=null;refresh()}}
 function newFree(){FD={W:16,D:16,bricks:[],plate:'#237841',title:'',id:null,color:'R',shape:2};lsSet('brick3d_draft',FD);openFree()}
