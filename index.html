@@ -51,8 +51,9 @@ h1.logo{font-size:42px;line-height:1.1;text-align:center;margin:28px 0 6px;lette
 @media (max-width:860px){
   .playgrid{grid-template-columns:1fr;grid-template-rows:auto;grid-template-areas:"preview" "build" "tray"}
   .freegrid{grid-template-areas:"build" "tray"}
-  .previewbox{height:30vh;min-height:200px}
-  .buildbox{height:52vh;min-height:300px}
+  .screen.wide{padding:8px 8px 32px}
+  .previewbox{height:28vh;height:28dvh;min-height:180px}
+  .buildbox{height:50vh;height:50dvh;min-height:280px}
   .tray,.freegrid .tray{max-height:none}
 }
 .items{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px;margin-top:8px}
@@ -247,7 +248,7 @@ function makeView(bg){
   const root=new THREE.Group();scene.add(root);
   return{renderer,scene,camera,controls,root,dl,W:0,D:0,boxes:[],bg:null,maxY:1};
 }
-function attach(v,el){v.el=el;el.appendChild(v.renderer.domElement);v.cw=0}
+function attach(v,el){v.el=el;el.appendChild(v.renderer.domElement);v.cw=0;if(v===BV){el.appendChild(placeBtn);clearPending()}}
 function setPlate(v,W,D,color){
   if(v.plate)v.root.remove(v.plate);
   const g=new THREE.Group();const pm=new THREE.MeshStandardMaterial({color,roughness:.55});
@@ -267,11 +268,18 @@ function setBricks(v,bricks){
   for(const b of bricks){const g=brickMesh(b);v.bg.add(g);v.boxes.push(g.children[0])}
   v.root.add(v.bg);
 }
+// 画面の縦横比に合わせて、全体がちょうど収まるカメラ距離
+function fitDist(v){
+  const hY=v.maxY*H;const R=.5*Math.sqrt(v.W*v.W+v.D*v.D+hY*hY)+.5;
+  const vf=v.camera.fov*Math.PI/180,hf=2*Math.atan(Math.tan(vf/2)*v.camera.aspect);
+  return R/Math.sin(Math.min(vf,hf)/2)*1.02;
+}
 function frameView(v,maxY){
   if(maxY!=null)v.maxY=Math.max(1,maxY);const my=v.maxY;
-  const size=Math.max(v.W,v.D,my*H);const r=size*1.15+4;
-  v.camera.position.set(r*.62,r*.72+my*H*.3,r*.95);v.controls.target.set(0,my*H*.32,0);v.controls.update();
-  v.controls.minDistance=3;v.controls.maxDistance=r*3;
+  const size=Math.max(v.W,v.D,my*H);
+  const dir=new THREE.Vector3(.62,.78,.95).normalize();const dist=fitDist(v);
+  v.controls.target.set(0,my*H*.4,0);v.camera.position.copy(v.controls.target).addScaledVector(dir,dist);v.controls.update();
+  v.controls.minDistance=2;v.controls.maxDistance=dist*3;
   const sc=v.dl.shadow.camera,e=size*.9+2;sc.left=-e;sc.right=e;sc.top=e;sc.bottom=-e;sc.near=1;sc.far=size*6+40;sc.updateProjectionMatrix();
   v.dl.position.set(size*.5+3,size*1.4+10,size*.8+4);
 }
@@ -279,7 +287,8 @@ function renderLoop(){
   requestAnimationFrame(renderLoop);
   for(const v of [BV,PV]){if(!v||!v.el||!v.el.offsetParent)continue;
     const w=v.el.clientWidth,h=v.el.clientHeight;
-    if(w!==v.cw||h!==v.ch){v.cw=w;v.ch=h;v.renderer.setSize(w,h,false);v.camera.aspect=w/h;v.camera.updateProjectionMatrix()}
+    if(w!==v.cw||h!==v.ch){v.cw=w;v.ch=h;v.renderer.setSize(w,h,false);v.camera.aspect=w/h;v.camera.updateProjectionMatrix();
+      if(v.W){const off=v.camera.position.clone().sub(v.controls.target);const d=fitDist(v);off.setLength(d);v.camera.position.copy(v.controls.target).add(off);v.controls.maxDistance=d*3}}
     v.controls.update();v.renderer.render(v.scene,v.camera)}
 }
 
@@ -483,7 +492,8 @@ function placementFrom(e){
   if(S.erase)return h.object.userData.brick?{remove:h.object.userData.brick}:null;
   const dims=selDims();if(!dims)return null;
   const p=BV.root.worldToLocal(h.point.clone());const n=h.face.normal;const hb=h.object.userData.brick;
-  const [w,d]=dims;if(w>S.W||d>S.D)return null;
+  let [w,d]=dims;
+  if(w>S.W||d>S.D){[w,d]=[d,w];if(w>S.W||d>S.D)return null}  // はみ出すときは自動で向きを変える
   const clampX=v=>Math.max(0,Math.min(S.W-w,v)),clampZ=v=>Math.max(0,Math.min(S.D-d,v));
   let x,y,z,fixed=false;
   if(hb&&n.y<.5){
@@ -507,28 +517,49 @@ function updateGhost(){
   if(ghost){BV.root.remove(ghost);ghost=null}
   if(!lastEv||!BV.plateMesh)return;
   hover=placementFrom(lastEv);if(!hover)return;
-  if(hover.remove){ghost=brickMesh({...hover.remove},ghostMat.rm);ghost.scale.set(1.002,1.002,1.002)}
+  if(hover.remove){ghost=brickMesh({...hover.remove},canRemove(hover.remove)?ghostMat.rm:ghostMat.bad);ghost.scale.set(1.002,1.002,1.002)}
   else{const m=hover.ok?ghostMat.ok:ghostMat.bad;if(hover.ok)m.color.set(PAL[hover.c]);ghost=brickMesh(hover,m)}
   BV.root.add(ghost);
 }
 function actAt(e,removeBtn){
   lastEv=e;const wasErase=S.erase;if(removeBtn)S.erase=true;const p=placementFrom(e);S.erase=wasErase;if(!p)return;
+  if(p.remove&&!canRemove(p.remove)){toast('上にブロックがのっているので外せません');sfx(160,.12);return}
   if(p.remove){snapshotUndo();S.bricks=S.bricks.filter(b=>b!==p.remove);if(S.mode==='stage'){const k=invKey(p.remove.w,p.remove.d,p.remove.c);S.inv[k]=(S.inv[k]||0)+1}sfx(300,.05);refresh();return}
   if(!p.ok){if(S.mode==='stage'&&!(S.inv[S.sel]>0))toast('このピースはもうありません');return}
   snapshotUndo();S.bricks.push({x:p.x,y:p.y,z:p.z,w:p.w,d:p.d,c:p.c});if(S.mode==='stage')S.inv[S.sel]--;
   sfx(440+p.y*40,.06);refresh();
   if(S.mode==='stage'&&!(S.inv[S.sel]>0)){const next=Object.keys(S.inv).find(k=>S.inv[k]>0);if(next){S.sel=next;buildInvUI()}}
 }
+// 上にのっているブロック／ぶら下がっているだけのブロックがあると外せない（実物と同じ）
+const overlap=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.z<b.z+b.d&&b.z<a.z+a.d;
+function canRemove(b){
+  if(S.bricks.some(c=>c!==b&&c.y===b.y+1&&overlap(b,c)))return false;
+  for(const c of S.bricks){if(c===b||c.y!==b.y-1||!overlap(b,c))continue;
+    const held=c.y===0||S.bricks.some(d=>d!==b&&d!==c&&overlap(c,d)&&(d.y===c.y-1||d.y===c.y+1));
+    if(!held)return false}
+  return true;
+}
+// タッチ操作：1回目のタップで半透明表示、同じ場所をもう一度タップ（または「ここに置く」）で設置
+let pending=null;
+const placeBtn=document.createElement('button');placeBtn.className='green';placeBtn.textContent='✓ ここに置く';
+placeBtn.style.cssText='position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:none;font-size:17px;padding:12px 22px;z-index:2';
+placeBtn.onclick=()=>{if(pending&&lastEv){const ev=lastEv;clearPending();actAt(ev,false)}};
+function clearPending(){pending=null;placeBtn.style.display='none';lastEv=null;updateGhost()}
+const samePl=(a,b)=>a&&b&&a.x===b.x&&a.y===b.y&&a.z===b.z&&a.w===b.w&&a.d===b.d;
 function setupInput(){
   const cv=BV.renderer.domElement;
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,b:e.button,t:Date.now()}});
   cv.addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&!e.buttons){lastEv={clientX:e.clientX,clientY:e.clientY};updateGhost()}});
-  cv.addEventListener('pointerleave',()=>{lastEv=null;updateGhost()});
+  cv.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse'){lastEv=null;updateGhost()}});
   cv.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y)>6;const b=down.b;down=null;if(moved)return;
-    if(S.mode==='stage'&&G&&G.done)return;actAt({clientX:e.clientX,clientY:e.clientY},b===2);
-    if(e.pointerType!=='mouse'){lastEv=null;updateGhost()}});
-  BV.controls.addEventListener('change',()=>{if(lastEv&&!down)updateGhost()});
+    if(S.mode==='stage'&&G&&G.done)return;const ev={clientX:e.clientX,clientY:e.clientY};
+    if(e.pointerType==='mouse'||b===2||S.erase){clearPending();actAt(ev,b===2);if(e.pointerType==='mouse'){lastEv=ev;updateGhost()}return}
+    lastEv=ev;const p=placementFrom(ev);
+    if(p&&!p.remove&&samePl(p,pending)){clearPending();actAt(ev,false);return}
+    pending=p&&!p.remove?p:null;updateGhost();placeBtn.style.display=pending&&pending.ok?'':'none';
+    if(pending&&!pending.ok)toast('そこには置けません');});
+  BV.controls.addEventListener('change',()=>{if(lastEv&&!down){updateGhost();if(pending&&hover&&!hover.remove)pending=hover}});
   document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
     if(e.key==='r'||e.key==='R')rotateSel();
     if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo()}});
