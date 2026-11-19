@@ -362,7 +362,7 @@ function setBricks(v,bricks){
 }
 // 画面の縦横比に合わせて、全体がちょうど収まるカメラ距離
 function fitDist(v){
-  const hY=v.maxY*H;const R=.5*Math.sqrt(v.W*v.W+v.D*v.D+hY*hY)+.5;
+  const hY=v.maxY*H,fw=v.fitW||v.W,fd=v.fitD||v.D;const R=.5*Math.sqrt(fw*fw+fd*fd+hY*hY)+.5;
   const vf=v.camera.fov*Math.PI/180,hf=2*Math.atan(Math.tan(vf/2)*v.camera.aspect);
   return R/Math.sin(Math.min(vf,hf)/2)*1.02;
 }
@@ -970,8 +970,8 @@ function showSelect(){
 let G=null,timerH=null;
 function startStage(n){
   G=genStage(n);G.start=Date.now();G.hints=0;G.done=false;G.freeHints=AD.freeHintsPerStage;setTimeout(updateHintBtn);
-  G.tvox=voxels(G.bricks);
-  S={mode:'stage',W:G.W,D:G.D,bricks:[],inv:{...G.inv},sel:null,rot:false,erase:false,undo:[],plate:'#a0a5a9'};
+  G.tvox=voxels(G.bricks);G.targets=makeTargets(G);
+  S={mode:'stage',W:STAGE_PLATE,D:STAGE_PLATE,bricks:[],inv:{...G.inv},sel:null,rot:false,erase:false,undo:[],plate:'#a0a5a9'};
   S.sel=Object.keys(S.inv).sort()[0];
   $('stageTitle').textContent=`ステージ ${n}`;$('stageName').textContent=`「${G.name}」`;
   $('previewLbl').textContent=`${CAT_ICON[G.cat]||''} 見本：${G.name}`;
@@ -980,7 +980,8 @@ function startStage(n){
   $('eraseBtn').classList.remove('on');
   show('play');
   attach(BV,$('playBuild'));attach(PV,$('playPreview'));
-  setPlate(BV,G.W,G.D,S.plate);setPlate(PV,G.W,G.D,S.plate);setBricks(PV,G.bricks);
+  setPlate(BV,S.W,S.D,S.plate);setPlate(PV,G.W,G.D,S.plate);setBricks(PV,G.bricks);
+  BV.fitW=Math.min(S.W,Math.max(G.W,G.D)+4);BV.fitD=BV.fitW; // 最初は作品のまわりに寄った画角
   frameView(BV,G.top);frameView(PV,G.top);PV.controls.autoRotate=true;$('autoBtn').textContent='⏸ 回転';
   refresh();if(touchMode)cursorFromSel();
   clearInterval(timerH);timerH=setInterval(()=>{if(G&&!G.done)$('timer').textContent=fmtTime((Date.now()-G.start)/1000)},500);$('timer').textContent='0:00';
@@ -1004,13 +1005,42 @@ function buildInvUI(){
       if(touchMode){if(S.sel===k&&CUR&&!CUR.orig&&CUR.key===k){rotateCur();return}S.sel=k;S.rot=false;if(S.erase)toggleErase();buildInvUI();cursorFromSel();return}
       if(S.sel===k&&!S.erase){rotateSel();buildInvUI();return}S.sel=k;S.rot=false;if(S.erase)toggleErase();buildInvUI();updateGhost()};box.appendChild(btn)}
 }
-function isHidden(x,y,z){const T=G.tvox;return T.has((x+1)+','+y+','+z)&&T.has((x-1)+','+y+','+z)&&T.has(x+','+y+','+(z+1))&&T.has(x+','+y+','+(z-1))&&T.has(x+','+(y+1)+','+z)}
+// ---- 判定：置いた場所・向き（90°ずつ）・使ったブロックの組み合わせは自由。形と色が同じならクリア ----
+const STAGE_PLATE=16;
+function rotBrick(b,D){return{...b,x:D-(b.z+b.d),z:b.x,w:b.d,d:b.w}}
+function makeTargets(g){
+  const out=[];let bricks=g.bricks.map(b=>({...b})),W=g.W,D=g.D;
+  for(let r=0;r<4;r++){
+    const vox=voxels(bricks),hidden=new Set();
+    for(const k of vox.keys()){const [x,y,z]=k.split(',').map(Number);
+      if(vox.has((x+1)+','+y+','+z)&&vox.has((x-1)+','+y+','+z)&&vox.has(x+','+y+','+(z+1))&&vox.has(x+','+y+','+(z-1))&&vox.has(x+','+(y+1)+','+z))hidden.add(k)}
+    out.push({bricks,vox,hidden,W,D});
+    bricks=bricks.map(b=>rotBrick(b,D));[W,D]=[D,W];
+  }
+  return out;
+}
 function isWin(){
-  const P=voxels(S.bricks);let top=G.top;for(const b of S.bricks)top=Math.max(top,b.y+1);
-  for(let y=0;y<top;y++)for(let z=0;z<G.D;z++)for(let x=0;x<G.W;x++){
-    if(isHidden(x,y,z))continue;const k=x+','+y+','+z,t=G.tvox.get(k),p=P.get(k);
-    if(!t!==!p)return false;if(t&&t!==p)return false}
-  return true;
+  const P=voxels(S.bricks);if(!P.size)return false;
+  let mx=1e9,mz=1e9;for(const k of P.keys()){const [x,,z]=k.split(',').map(Number);mx=Math.min(mx,x);mz=Math.min(mz,z)}
+  const N=new Map();for(const [k,c] of P){const [x,y,z]=k.split(',').map(Number);N.set((x-mx)+','+y+','+(z-mz),c)}
+  return G.targets.some(T=>{
+    for(const [k,c] of T.vox){if(T.hidden.has(k))continue;if(N.get(k)!==c)return false}
+    for(const k of N.keys()){if(!T.vox.has(k))return false} // はみ出し・余計なブロックがない
+    return true;
+  });
+}
+// ヒント用：いま置いてあるブロックに一番合う 向き・位置 を探す
+function bestPlacement(){
+  const P=voxels(S.bricks);let best=null;
+  G.targets.forEach((T,r)=>{
+    for(let ox=0;ox<=S.W-T.W;ox++)for(let oz=0;oz<=S.D-T.D;oz++){
+      let score=0;
+      if(P.size)for(const [k,c] of T.vox){const [x,y,z]=k.split(',').map(Number);if(P.get((x+ox)+','+y+','+(z+oz))===c)score++}
+      const center=-Math.abs(ox-(S.W-T.W)/2)-Math.abs(oz-(S.D-T.D)/2);
+      if(!best||score>best.score||(score===best.score&&r===0&&best.r===0&&center>best.center))best={r,ox,oz,score,center};
+    }
+  });
+  return best;
 }
 function checkWin(){
   if(!G||G.done||!S.bricks.length||!isWin())return;G.done=true;const t=(Date.now()-G.start)/1000;
@@ -1032,14 +1062,21 @@ function hint(){
   if(!G||G.done)return;
   if(CUR&&CUR.orig){restoreOrig();CUR=null}
   const P=voxels(S.bricks);
-  const sorted=G.bricks.slice().sort((a,b)=>a.y-b.y);
+  const bp=bestPlacement(),T=G.targets[bp.r];
+  const placed=T.bricks.map(b=>({...b,x:b.x+bp.ox,z:b.z+bp.oz}));
+  const tvox=voxels(placed);
+  const sorted=placed.slice().sort((a,b)=>a.y-b.y);
   const cells=b=>{const r=[];for(let i=0;i<b.w;i++)for(let j=0;j<b.d;j++)r.push((b.x+i)+','+b.y+','+(b.z+j));return r};
-  const tb=sorted.find(b=>cells(b).some(k=>P.get(k)!==b.c));if(!tb){toast('もう少し！はみ出したブロックがないか見てね');return}
+  const tb=sorted.find(b=>cells(b).some(k=>P.get(k)!==b.c));
+  if(!tb){ // 見本の形はできている → はみ出したブロックを外す
+    const extra=S.bricks.find(b=>cells(b).some(k=>tvox.get(k)!==b.c));
+    if(extra&&canRemove(extra)){snapshotUndo();S.bricks=S.bricks.filter(b=>b!==extra);const k=invKey(extra.w,extra.d,extra.c);S.inv[k]=(S.inv[k]||0)+1;G.hints++;toast('はみ出したブロックを外したよ');sfx(880,.08);refresh();return}
+    toast('もう少し！はみ出したブロックがないか見てね');return}
   snapshotUndo();
   const need=new Set(cells(tb));
   S.bricks=S.bricks.filter(b=>{if(cells(b).some(k=>need.has(k))){const k=invKey(b.w,b.d,b.c);S.inv[k]=(S.inv[k]||0)+1;return false}return true});
   const k=invKey(tb.w,tb.d,tb.c);
-  if(!(S.inv[k]>0)){const wrong=S.bricks.find(b=>invKey(b.w,b.d,b.c)===k&&cells(b).some(c=>G.tvox.get(c)!==b.c));
+  if(!(S.inv[k]>0)){const wrong=S.bricks.find(b=>invKey(b.w,b.d,b.c)===k&&cells(b).some(c=>tvox.get(c)!==b.c));
     if(wrong){S.bricks=S.bricks.filter(b=>b!==wrong);S.inv[k]=(S.inv[k]||0)+1}}
   if(S.inv[k]>0)S.inv[k]--;
   S.bricks.push({...tb});G.hints++;sfx(880,.08);refresh();
@@ -1112,7 +1149,7 @@ function autosave(){if(S.mode!=='free')return;FD={W:S.W,D:S.D,bricks:S.bricks,pl
 function openFree(){
   S={mode:'free',W:FD.W,D:FD.D,bricks:JSON.parse(JSON.stringify(FD.bricks)),inv:null,sel:{shape:FD.shape??2,color:FD.color||'R'},rot:false,erase:false,undo:[],plate:FD.plate};
   $('freeTitle').value=FD.title||'';$('freeSize').value=S.W;$('freePlate').value=S.plate;$('eraseBtn2').classList.remove('on');
-  show('free');attach(BV,$('freeBuild'));setPlate(BV,S.W,S.D,S.plate);frameView(BV,4);buildFreeUI();refresh();if(touchMode)cursorFromSel();
+  show('free');attach(BV,$('freeBuild'));setPlate(BV,S.W,S.D,S.plate);BV.fitW=BV.fitD=null;frameView(BV,4);buildFreeUI();refresh();if(touchMode)cursorFromSel();
 }
 function dropCursor(){if(CUR){restoreOrig();CUR=null;refresh()}}
 function newFree(){FD={W:16,D:16,bricks:[],plate:'#237841',title:'',id:null,color:'R',shape:2};lsSet('brick3d_draft',FD);openFree()}
