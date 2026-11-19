@@ -230,7 +230,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
       </div>
       <div class="items" id="invItems"></div>
       <div class="mhelp">ピースをタップ → 🧱モードでスワイプして位置合わせ → タップで置く ／ 置いたブロックは長押しで持ち上げ ／ 🎥モードで視点を回す</div>
-      <p class="small">ピースを選んで台やブロックをクリック（またはピースを台へドラッグ）。上の面→上に積む、横の面→横にくっつける、下の面→下にぶら下げる。選んだピースをもう一度クリックで向きを変える。何もない所をドラッグで視点回転、右クリックか「外す」でブロックを外す。</p>
+      <p class="small">ピースを選んで台やブロックをクリック（またはピースを台へドラッグ）。ブロックは実物と同じく、下のブロックに乗せて積みます（横にくっつけたり、下からはめたりはできません）。選んだピースをもう一度クリックで向きを変える。何もない所をドラッグで視点回転、右クリックか「外す」でブロックを外す。</p>
     </div>
   </div>
 </section>
@@ -392,7 +392,7 @@ function renderLoop(){
 }
 
 // ============ ステージ生成 ============
-const SIZES=[[1,1],[1,2],[1,3],[1,4],[2,2],[2,3],[2,4]];
+const SIZES=[[1,1],[1,2],[1,3],[1,4],[1,6],[1,8],[2,2],[2,3],[2,4],[2,6]];
 const N_STAGE=100;
 const TEMPLATES={
   blob(s,maxH,rng,P){
@@ -428,8 +428,38 @@ const TEMPLATES={
       if(y===1&&x===W-1&&(z===0||z===D-1))return 'Y';
       if(y===2)return 'L';if(y>2)return body;return body},name:'くるま'}},
 };
-function tileRegion(cells,sizes,rng){
-  const left=new Set(cells),out=[];
+// 1段分を、ブロックに分ける。sup（下に何かある「x,z」）を渡すと、
+// どのブロックも下のブロックに少なくとも1マス乗るようにする（実物と同じく、下から支えのないブロックは作らない）
+function tileRegion(cells,sizes,rng,sup){
+  const left=new Set(cells),out=[];out.failed=0;
+  if(sup){
+    const fits=(x,z,w,d)=>{for(let i=0;i<w;i++)for(let j=0;j<d;j++)if(!left.has((x+i)+','+(z+j)))return false;return true};
+    const held=(x,z,w,d)=>{for(let i=0;i<w;i++)for(let j=0;j<d;j++)if(sup.has((x+i)+','+(z+j)))return true;return false};
+    // 支えのないマスから先に、支えのあるマスまで届くブロックで埋める（選べる形が少ないマスから）
+    const opts=k=>{const [cx,cz]=k.split(',').map(Number);const r=[];
+      for(const [a,b] of sizes)for(const [w,d] of (a===b?[[a,b]]:[[a,b],[b,a]]))
+        for(let ox=cx-w+1;ox<=cx;ox++)for(let oz=cz-d+1;oz<=cz;oz++)if(fits(ox,oz,w,d)&&held(ox,oz,w,d))r.push([ox,oz,w,d]);
+      return r};
+    let todo=cells.filter(k=>!sup.has(k));
+    while(todo.length){
+      todo=todo.filter(k=>left.has(k));if(!todo.length)break;
+      let pick=null,po=null;
+      for(const k of todo){const o=opts(k);if(!po||o.length<po.length){pick=k;po=o;if(!o.length)break}}
+      if(!po.length){const [x,z]=pick.split(',').map(Number);left.delete(pick);out.push({x,z,w:1,d:1});out.failed++;(out.fails=out.fails||[]).push([x,z]);continue}
+      // ほかの「支えのないマス」を置き去りにしない形を優先（先読み）
+      let best=null,bv=-1,bs=1e9;
+      for(const o of po){
+        const cov=[];for(let i=0;i<o[2];i++)for(let j=0;j<o[3];j++)cov.push((o[0]+i)+','+(o[1]+j));
+        cov.forEach(k=>left.delete(k));
+        let stranded=0;for(const k of todo)if(left.has(k)&&k!==pick&&!opts(k).length)stranded++;
+        cov.forEach(k=>left.add(k));
+        const v=Math.pow(o[2]*o[3],1.15)*(.35+rng());
+        if(stranded<bs||(stranded===bs&&v>bv)){bs=stranded;bv=v;best=o}
+      }
+      const [x,z,w,d]=best;for(let i=0;i<w;i++)for(let j=0;j<d;j++)left.delete((x+i)+','+(z+j));out.push({x,z,w,d});
+    }
+  }
+  cells=[...left];
   const sorted=cells.map(k=>k.split(',').map(Number)).sort((a,b)=>a[1]-b[1]||a[0]-b[0]);
   for(const [x,z] of sorted){if(!left.has(x+','+z))continue;
     let best=null,bv=-1;
@@ -466,40 +496,41 @@ const MODELS=[
 {name:'アイス',cat:'いろいろ',alt:[{P:'N'},{P:'M'}],f:b=>b.px(1,0,1,'T').box(0,1,0,3,2,3,'T').corners(0,0,3,3,1).box(0,3,0,3,2,3,'P').box(0,5,0,3,1,3,'W').corners(0,0,3,3,5).px(1,6,1,'R')},
 {name:'ゆきだるま',cat:'いろいろ',alt:[{R:'B'},{R:'G'}],f:b=>{b.box(0,0,0,4,3,4,'W').corners(0,0,4,4,0,3).box(0,3,0,4,1,4,'R').box(1,3,1,2,2,2,'W')
   .px(1,4,2,'K').px(2,4,2,'K').px(1,3,3,'O').box(0,5,0,4,1,4,'K').box(1,6,1,2,2,2,'K').px(1,1,3,'K').px(2,2,3,'K')}},
-{name:'ロボット',cat:'いろいろ',alt:[{B:'R'},{B:'G',A:'W'}],f:b=>b.box(0,0,1,1,2,1,'A').box(2,0,1,1,2,1,'A').box(0,2,0,3,3,3,'B').px(1,3,2,'Y')
+{name:'ロボット',cat:'いろいろ',alt:[{B:'R'},{B:'G',A:'W'}],f:b=>b.box(0,0,0,1,2,3,'A').box(2,0,0,1,2,3,'A').box(0,2,0,3,3,3,'B').px(1,3,2,'Y')
   .box(-1,3,1,1,2,1,'A').box(3,3,1,1,2,1,'A').box(0,5,0,3,2,3,'A').px(0,6,2,'R').px(2,6,2,'R').px(1,5,2,'K').px(1,7,1,'A').px(1,8,1,'R')},
 // ---- どうぶつ ----
-{name:'ねこ',cat:'どうぶつ',alt:[{O:'A'},{O:'K',K:'Y'}],f:b=>b.legs([0,3],[0,2],1,'O').box(0,1,0,4,2,3,'O').box(3,3,0,2,2,3,'O').px(3,5,0,'O').px(3,5,2,'O')
+{name:'ねこ',cat:'どうぶつ',alt:[{O:'A'},{O:'K',K:'Y'}],f:b=>b.legs([0,4],[0,2],1,'O').box(0,1,0,5,2,3,'O').box(3,3,0,2,2,3,'O').px(3,5,0,'O').px(3,5,2,'O')
   .px(4,4,0,'K').px(4,4,2,'K').px(5,3,1,'P').box(-1,2,1,1,2,1,'O')},
-{name:'いぬ',cat:'どうぶつ',alt:[{N:'W',K:'N'},{N:'T'}],f:b=>b.legs([0,4],[0,2],1,'N').box(0,1,0,5,2,3,'N').box(4,3,0,2,2,3,'N').box(6,3,1,1,1,1,'T').px(6,4,1,'K')
+{name:'いぬ',cat:'どうぶつ',alt:[{N:'W',K:'N'},{N:'T'}],f:b=>b.legs([0,5],[0,2],1,'N').box(0,1,0,6,2,3,'N').box(4,3,0,2,2,3,'N').box(6,3,1,1,1,1,'T').px(6,4,1,'K')
   .px(5,4,0,'K').px(5,4,2,'K').box(4,3,-1,1,2,1,'K').box(4,3,3,1,2,1,'K').px(-1,3,1,'N')},
-{name:'ぶた',cat:'どうぶつ',alt:[{P:'T'}],f:b=>b.legs([0,3],[0,2],1,'P').box(0,1,0,4,2,3,'P').box(4,2,0,2,2,3,'P').box(6,2,1,1,1,1,'R').px(5,3,0,'K').px(5,3,2,'K').px(4,4,0,'P').px(4,4,2,'P').px(-1,2,1,'P')},
-{name:'うさぎ',cat:'どうぶつ',alt:[{W:'N'},{W:'A'}],f:b=>b.box(0,0,0,3,2,3,'W').box(2,2,0,2,2,3,'W').box(2,4,0,1,3,1,'W').box(2,4,2,1,3,1,'W').px(2,5,0,'P').px(2,5,2,'P')
+{name:'ぶた',cat:'どうぶつ',alt:[{P:'T'}],f:b=>b.legs([0,4],[0,2],1,'P').box(0,1,0,7,1,3,'P').box(0,2,0,6,1,3,'P').box(4,3,0,2,1,3,'P').box(6,2,1,1,1,1,'R').px(5,3,0,'K').px(5,3,2,'K').px(4,4,0,'P').px(4,4,2,'P').px(-1,2,1,'P')},
+{name:'うさぎ',cat:'どうぶつ',alt:[{W:'N'},{W:'A'}],f:b=>b.box(0,0,0,4,2,3,'W').box(2,2,0,2,2,3,'W').box(2,4,0,1,3,1,'W').box(2,4,2,1,3,1,'W').px(2,5,0,'P').px(2,5,2,'P')
   .px(3,3,0,'R').px(3,3,2,'R').px(4,2,1,'P').px(-1,1,1,'W')},
 {name:'ペンギン',cat:'どうぶつ',alt:[{K:'B'}],f:b=>b.box(0,0,0,3,4,3,'K').box(2,0,1,1,3,1,'W').box(0,4,0,3,2,3,'K').px(2,5,0,'W').px(2,5,2,'W').px(3,4,1,'O')
   .box(0,1,-1,2,2,1,'K').box(0,1,3,2,2,1,'K').px(3,0,0,'O').px(3,0,2,'O')},
-{name:'あひる',cat:'どうぶつ',alt:[{Y:'W'}],f:b=>b.box(0,0,0,4,2,3,'Y').box(3,2,0,2,2,3,'Y').px(4,3,0,'K').px(4,3,2,'K').px(5,2,1,'O').px(-1,1,1,'Y').box(1,1,-1,2,1,1,'Y').box(1,1,3,2,1,1,'Y')},
+{name:'あひる',cat:'どうぶつ',alt:[{Y:'W'}],f:b=>b.box(0,0,0,5,2,3,'Y').box(3,2,0,2,2,3,'Y').px(4,3,0,'K').px(4,3,2,'K').px(5,2,1,'O').px(-1,1,1,'Y').box(1,1,-1,2,1,1,'Y').box(1,1,3,2,1,1,'Y')},
 {name:'かえる',cat:'どうぶつ',alt:[{G:'M'}],f:b=>b.box(0,0,0,4,2,4,'G').box(2,2,0,2,2,1,'G').box(2,2,3,2,2,1,'G').px(3,3,0,'K').px(3,3,3,'K').box(4,1,1,1,1,2,'R').box(0,0,-1,2,1,1,'G').box(0,0,4,2,1,1,'G')},
-{name:'かめ',cat:'どうぶつ',alt:[{G:'N',N:'Y'}],f:b=>b.legs([0,3],[0,3],1,'M').box(0,1,0,4,1,4,'G').box(1,2,1,2,1,2,'G').px(1,2,1,'N').px(2,2,2,'N').box(4,1,1,2,2,2,'M').px(5,2,1,'K').px(5,2,2,'K').px(-1,1,2,'M')},
+{name:'かめ',cat:'どうぶつ',alt:[{G:'N',N:'Y'}],f:b=>b.legs([0,3],[0,3],1,'M').box(0,1,0,4,1,4,'G').box(1,2,1,2,1,2,'G').px(1,2,1,'N').px(2,2,2,'N').box(4,0,1,2,2,2,'M').px(5,1,1,'K').px(5,1,2,'K').px(-1,0,2,'M')},
 {name:'さかな',cat:'どうぶつ',alt:[{O:'B'},{O:'P'}],f:b=>b.box(0,0,0,4,3,2,'O').box(1,0,0,1,3,2,'W').box(-1,1,0,1,1,2,'O').box(-2,0,0,1,3,2,'O').px(3,2,0,'K').px(3,2,1,'K').px(2,3,0,'O').px(2,3,1,'O')},
-{name:'ぞう',cat:'どうぶつ',alt:[{A:'L'}],f:b=>b.legs([0,3],[0,2],2,'A').box(0,2,0,4,3,3,'A').box(4,3,0,2,2,3,'A').box(6,1,1,1,3,1,'A').box(4,2,-1,1,3,1,'A').box(4,2,3,1,3,1,'A')
-  .px(5,4,0,'K').px(5,4,2,'K').px(6,3,0,'W').px(6,3,2,'W').px(-1,3,1,'A')},
-{name:'パンダ',cat:'どうぶつ',alt:[],f:b=>b.legs([0,3],[0,2],1,'K').box(0,1,0,4,2,3,'W').box(2,1,0,1,2,3,'K').box(3,3,0,2,2,3,'W').px(3,5,0,'K').px(3,5,2,'K').px(4,4,0,'K').px(4,4,2,'K').px(5,3,1,'K')},
+{name:'ぞう',cat:'どうぶつ',alt:[{A:'L'}],f:b=>b.legs([0,4],[0,2],2,'A').box(0,2,0,6,3,3,'A').box(6,0,1,1,4,1,'A').box(4,2,-1,1,3,1,'A').box(4,2,3,1,3,1,'A')
+  .px(5,4,0,'K').px(5,4,2,'K').px(6,3,0,'W').px(6,3,2,'W').px(-1,3,0,'A')},
+{name:'パンダ',cat:'どうぶつ',alt:[],f:b=>b.legs([0,4],[0,2],1,'K').box(0,1,0,5,2,3,'W').box(2,2,0,1,1,3,'K').box(3,3,0,2,2,3,'W').px(3,5,0,'K').px(3,5,2,'K').px(4,4,0,'K').px(4,4,2,'K').px(5,3,1,'K')},
 {name:'ひつじ',cat:'どうぶつ',alt:[{W:'T'}],f:b=>b.legs([0,3],[0,2],1,'K').box(0,1,0,4,3,3,'W').box(4,2,0,2,2,3,'K').px(5,3,0,'W').px(5,3,2,'W').px(4,3,-1,'K').px(4,3,3,'K').box(4,4,0,1,1,3,'W')},
-{name:'くま',cat:'どうぶつ',alt:[{N:'W'},{N:'K',K:'W'}],f:b=>b.legs([0,3],[0,2],1,'N').box(0,1,0,4,2,3,'N').box(3,3,0,2,2,3,'N').px(3,5,0,'N').px(3,5,2,'N').px(5,3,1,'T').px(5,4,1,'K').px(4,4,0,'K').px(4,4,2,'K')},
+{name:'くま',cat:'どうぶつ',alt:[{N:'W'},{N:'K',K:'W'}],f:b=>b.legs([0,4],[0,2],1,'N').box(0,1,0,5,2,3,'N').box(3,3,0,2,2,3,'N').px(3,5,0,'N').px(3,5,2,'N').px(5,3,1,'T').px(5,4,1,'K').px(4,4,0,'K').px(4,4,2,'K')},
 {name:'キリン',cat:'どうぶつ',alt:[],f:b=>b.legs([0,3],[0,1],3,'Y').box(0,3,0,4,2,2,'Y').box(3,5,0,1,4,2,'Y').box(3,9,0,3,1,2,'Y').px(3,10,0,'N').px(3,10,1,'N')
-  .px(4,9,0,'K').px(4,9,1,'K').px(1,4,0,'N').px(2,3,1,'N').px(0,4,1,'N').px(3,6,0,'N').px(3,8,1,'N').px(-1,4,0,'Y')},
-{name:'ライオン',cat:'どうぶつ',alt:[{O:'N'}],f:b=>b.legs([0,3],[0,2],1,'Y').box(0,1,0,4,2,3,'Y').box(3,2,-1,2,4,5,'O').box(5,3,0,1,2,3,'Y').px(5,4,0,'K').px(5,4,2,'K').px(6,3,1,'N').px(-1,2,1,'Y').px(-2,3,1,'O')},
+  .px(4,10,0,'K').px(4,10,1,'K').px(1,4,0,'N').px(2,3,1,'N').px(0,4,1,'N').px(3,6,0,'N').px(3,8,1,'N').px(-1,4,0,'Y')},
+{name:'ライオン',cat:'どうぶつ',alt:[{O:'N'}],f:b=>b.legs([0,5],[0,2],1,'Y').box(0,1,0,6,1,3,'Y').box(0,2,0,4,1,3,'Y').box(3,2,-1,2,4,5,'O').box(5,2,0,1,3,3,'Y').px(5,4,0,'K').px(5,4,2,'K').px(6,3,1,'N').px(-1,2,1,'Y').px(-1,3,1,'O')},
 // ---- しょくぶつ ----
-{name:'き',cat:'しょくぶつ',alt:[{G:'M',R:'Y'}],f:b=>b.box(2,0,2,1,3,1,'N').box(0,3,0,5,2,5,'G').corners(0,0,5,5,3,2).box(1,5,1,3,1,3,'G').px(2,6,2,'G').px(4,4,2,'R').px(2,4,4,'R').px(0,3,2,'R')},
-{name:'もみの木',cat:'しょくぶつ',alt:[{G:'W'}],f:b=>b.px(2,0,2,'N').box(0,1,0,5,1,5,'G').box(0,2,0,5,1,5,'G').corners(0,0,5,5,2).box(1,3,1,3,2,3,'G').corners(1,1,3,3,4).px(2,5,2,'G').px(2,6,2,'Y')
-  .px(0,1,2,'R').px(4,2,2,'Y').px(2,3,3,'B').px(1,1,4,'Y').px(3,4,2,'R')},
+{name:'き',cat:'しょくぶつ',alt:[{G:'M',R:'Y'}],f:b=>b.box(2,0,2,1,3,1,'N').box(1,3,2,3,1,1,'G').box(1,4,1,3,1,3,'G').box(1,5,0,3,1,5,'G').box(0,6,0,5,1,5,'G').corners(0,0,5,5,6).box(1,7,1,3,1,3,'G').px(2,8,2,'G')
+  .px(1,7,1,'R').px(3,7,3,'R').px(3,7,1,'R')},
+{name:'もみの木',cat:'しょくぶつ',alt:[{G:'W'}],f:b=>b.box(0,0,0,5,1,5,'N').box(0,1,0,5,1,5,'G').corners(0,0,5,5,1).box(1,2,1,3,1,3,'G').box(0,3,0,5,1,5,'G').corners(0,0,5,5,3).box(1,4,1,3,1,3,'G').px(2,5,2,'G').px(2,6,2,'Y')
+  .px(0,1,2,'R').px(4,1,2,'R').px(1,2,1,'Y').px(3,4,3,'B').px(1,4,1,'R')},
 {name:'はな',cat:'しょくぶつ',alt:[{P:'R'},{P:'V'}],f:b=>b.box(0,0,0,3,2,3,'O').box(1,2,1,1,3,1,'G').px(0,3,1,'G').px(2,4,1,'G').box(0,5,1,3,3,1,'P').px(1,6,1,'Y')},
 {name:'チューリップ',cat:'しょくぶつ',alt:[{R:'Y'},{R:'P'}],f:b=>b.box(0,0,0,3,1,3,'N').box(1,1,1,1,3,1,'G').px(0,2,1,'G').px(2,2,1,'G').px(2,3,1,'G').box(0,4,0,3,2,3,'R').del(1,5,1)
   .px(0,6,0,'R').px(2,6,0,'R').px(0,6,2,'R').px(2,6,2,'R')},
 {name:'サボテン',cat:'しょくぶつ',alt:[{O:'B'}],f:b=>b.box(0,0,0,3,1,3,'O').box(1,1,1,1,6,1,'G').px(0,3,1,'G').px(-1,3,1,'G').px(-1,4,1,'G').px(-1,5,1,'G').px(2,4,1,'G').px(3,4,1,'G').px(3,5,1,'G').px(3,6,1,'G').px(1,7,1,'P')},
-{name:'ひまわり',cat:'しょくぶつ',alt:[{Y:'O'}],f:b=>b.box(2,0,1,1,5,1,'G').px(1,2,1,'G').px(3,3,1,'G').box(0,5,1,5,5,1,'Y').del(0,5,1).del(4,5,1).del(0,9,1).del(4,9,1).box(1,6,1,3,3,1,'N')},
-{name:'きのこ',cat:'しょくぶつ',alt:[{R:'B'},{R:'N'}],f:b=>b.box(1,0,1,2,2,2,'W').box(0,2,0,4,1,4,'R').box(1,3,1,2,1,2,'R').px(0,2,1,'W').px(3,2,2,'W').px(1,3,1,'W').px(2,2,3,'W')},
+{name:'ひまわり',cat:'しょくぶつ',alt:[{Y:'O'}],f:b=>b.box(2,0,1,1,5,1,'G').px(1,2,1,'G').px(3,3,1,'G').box(1,5,1,3,1,1,'Y').box(0,6,1,5,3,1,'Y').box(1,9,1,3,1,1,'Y').box(1,7,1,3,2,1,'N')},
+{name:'きのこ',cat:'しょくぶつ',alt:[{R:'B'},{R:'N'}],f:b=>b.box(1,0,1,2,2,2,'W').box(0,2,0,4,1,4,'R').box(1,3,1,2,1,2,'R').px(1,3,1,'W').px(2,3,2,'W')},
 {name:'りんご',cat:'しょくぶつ',alt:[{R:'M'},{R:'Y'}],f:b=>b.box(0,0,0,4,3,4,'R').corners(0,0,4,4,0).corners(0,0,4,4,2).px(2,3,2,'N').px(2,4,2,'N').px(3,4,2,'G')},
 {name:'いちご',cat:'しょくぶつ',alt:[],f:b=>b.px(1,0,1,'R').box(0,1,0,3,3,3,'R').corners(0,0,3,3,1).box(0,4,0,3,1,3,'G').corners(0,0,3,3,4).px(1,5,1,'G')
   .px(0,2,0,'Y').px(2,3,2,'Y').px(1,1,2,'Y').px(2,2,0,'Y').px(0,3,2,'Y')},
@@ -517,14 +548,14 @@ const MODELS=[
 {name:'かまくら',cat:'たてもの',alt:[],f:b=>{for(let x=-3;x<=3;x++)for(let z=-3;z<=3;z++)for(let y=0;y<4;y++)if(x*x+z*z+(y*1.3)**2<=11)b.px(x,y,z,'W');b.box(3,0,-1,2,2,3,'W').px(4,0,0,'K')}},
 // ---- のりもの ----
 {name:'くるま',cat:'のりもの',alt:[{R:'B'},{R:'Y'}],f:(b,rng)=>b.tpl(TEMPLATES.car(6,4,rng,['R']))},
-{name:'トラック',cat:'のりもの',alt:[{R:'G',O:'W'}],f:b=>b.legs([1,5],[0,2],1,'K').box(0,1,0,7,1,3,'A').box(5,2,0,2,2,3,'R').box(6,3,0,1,1,3,'L').box(0,2,0,5,3,3,'O').px(7,1,0,'Y').px(7,1,2,'Y')},
+{name:'トラック',cat:'のりもの',alt:[{R:'G',O:'W'}],f:b=>b.legs([1,5],[0,2],1,'K').box(0,1,0,7,1,3,'A').box(5,2,0,2,2,3,'R').box(6,3,0,1,1,3,'L').box(0,2,0,5,3,3,'O').px(6,2,0,'Y').px(6,2,2,'Y')},
 {name:'でんしゃ',cat:'のりもの',alt:[{R:'B'},{R:'G'}],f:b=>b.legs([1,4,6],[0,2],1,'K').box(0,1,0,8,2,3,'R').box(0,3,0,3,2,3,'R').box(0,5,0,3,1,3,'K').px(1,4,0,'L').px(1,4,2,'L')
-  .box(3,3,0,4,1,3,'K').box(5,4,1,1,2,1,'K').px(8,2,1,'Y').box(8,1,0,1,1,3,'A')},
+  .box(3,3,0,4,1,3,'K').box(5,4,1,1,2,1,'K').px(8,2,1,'Y').box(8,0,0,1,2,3,'A')},
 {name:'ロケット',cat:'のりもの',alt:[{R:'B',B:'R'}],f:b=>b.box(1,0,1,2,8,2,'W').px(0,0,1,'R').px(0,1,1,'R').px(3,0,2,'R').px(3,1,2,'R').px(1,0,0,'R').px(1,1,0,'R').px(2,0,3,'R').px(2,1,3,'R')
   .box(1,3,1,2,1,2,'B').px(1,5,2,'L').box(1,8,1,2,1,2,'R').px(1,9,1,'R')},
 {name:'ふね',cat:'のりもの',alt:[{N:'B'}],f:b=>b.box(1,0,0,5,1,3,'N').box(0,1,0,7,1,3,'N').box(2,2,0,3,1,3,'W').box(3,3,1,1,4,1,'N').box(4,3,1,2,3,1,'W').px(3,7,1,'R')},
 {name:'ひこうき',cat:'のりもの',alt:[{B:'R'},{W:'Y'}],f:b=>b.box(0,1,1,7,2,2,'W').box(7,1,1,1,1,2,'W').box(3,2,-2,2,1,6,'B').box(0,3,1,1,2,1,'R').box(0,2,0,1,1,4,'B')
-  .px(2,2,2,'L').px(4,2,2,'L').px(6,2,2,'L').px(6,2,1,'L').px(2,0,1,'K').px(2,0,2,'K').px(5,0,1,'K')},
+  .px(2,2,2,'L').px(6,2,2,'L').px(6,2,1,'L').px(2,0,1,'K').px(2,0,2,'K').px(5,0,1,'K')},
 {name:'UFO',cat:'のりもの',alt:[{A:'V'}],f:b=>b.box(1,0,1,4,1,4,'A').px(1,0,1,'Y').px(4,0,4,'Y').px(1,0,4,'Y').px(4,0,1,'Y').box(0,1,0,6,1,6,'A').corners(0,0,6,6,1).box(1,2,1,4,1,4,'A').box(2,3,2,2,2,2,'L')},
 ];
 function buildModel(mi,v,rng){
@@ -533,14 +564,38 @@ function buildModel(mi,v,rng){
   let mnx=1e9,mny=1e9,mnz=1e9;for(const k of b.v.keys()){const [x,y,z]=k.split(',').map(Number);mnx=Math.min(mnx,x);mny=Math.min(mny,y);mnz=Math.min(mnz,z)}
   const vox=new Map();let W=0,D=0,top=0;
   for(const [k,c] of b.v){const [x,y,z]=k.split(',').map(Number);const X=x-mnx,Y=y-mny,Z=z-mnz;vox.set(X+','+Y+','+Z,alt&&alt[c]?alt[c]:c);W=Math.max(W,X+1);D=Math.max(D,Z+1);top=Math.max(top,Y+1)}
-  return{vox,W,D,top,name:m.name,cat:m.cat};
+  const M={vox,W,D,top,name:m.name,cat:m.cat};addLedges(M);
+  return M;
 }
 function tileVoxels(M,rng){
-  const bricks=[];
-  for(let y=0;y<M.top;y++){const groups={};
-    for(const [k,c] of M.vox){const [x,yy,z]=k.split(',').map(Number);if(yy===y)(groups[c]=groups[c]||[]).push(x+','+z)}
-    for(const c in groups)for(const r of tileRegion(groups[c],SIZES,rng))bricks.push({...r,y,c})}
-  return bricks;
+  // 何回か試して、支えのないブロックが一番少ない分け方を使う
+  let best=null;
+  for(let t=0;t<12;t++){
+    const bricks=[],fails=[];let failed=0;
+    for(let y=0;y<M.top;y++){const groups={};let sup=null;
+      if(y>0){sup=new Set();for(const k of M.vox.keys()){const [x,yy,z]=k.split(',').map(Number);if(yy===y-1)sup.add(x+','+z)}}
+      for(const [k,c] of M.vox){const [x,yy,z]=k.split(',').map(Number);if(yy===y)(groups[c]=groups[c]||[]).push(x+','+z)}
+      for(const c in groups){const r=tileRegion(groups[c],SIZES,rng,sup);failed+=r.failed;for(const b of r)bricks.push({...b,y,c});for(const [x,z] of (r.fails||[]))fails.push([x,y,z])}}
+    if(!best||failed<best.failed){best={bricks,failed,fails}}
+    if(!failed)break;
+  }
+  best.bricks.failed=best.failed;best.bricks.fails=best.fails;
+  return best.bricks;
+}
+// 下から積めない出っぱり（鼻・くちばし・耳など）の下に、となりと同じ色の「台」を1マス足す（実物のブロックで作るときと同じ工夫）
+function addLedges(M){
+  for(let round=0;round<4;round++){
+    const b=tileVoxels(M,mulberry32(7));if(!b.failed)return;
+    let added=0;
+    for(const [x,y,z] of b.fails){
+      if(y===0||M.vox.has(x+','+(y-1)+','+z))continue;
+      // 台そのものも下に乗れる場所だけ（台のとなりの同じ色のマスが、さらに下に支えを持っている）
+      let c=null;for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const k=(x+dx)+','+(y-1)+','+(z+dz);
+        if(M.vox.has(k)&&(y-1===0||M.vox.has((x+dx)+','+(y-2)+','+(z+dz)))){c=M.vox.get(k);break}}
+      if(c){M.vox.set(x+','+(y-1)+','+z,c);added++}
+    }
+    if(!added)return;
+  }
 }
 // 1〜50面：全造形物を小さい順 ／ 51〜100面：色ちがい＋ダミー多めでもう一周
 const STAGES=(()=>{
@@ -595,12 +650,13 @@ function placementFrom(e){
   if(w>S.W||d>S.D){[w,d]=[d,w];if(w>S.W||d>S.D)return null}  // はみ出すときは自動で向きを変える
   const clampX=v=>Math.max(0,Math.min(S.W-w,v)),clampZ=v=>Math.max(0,Math.min(S.D-d,v));
   let x,y,z,fixed=false;
-  if(hb&&n.y<.5){
-    // 横の面 → 同じ高さで横にくっつける ／ 下の面 → 1段下にぶら下げる
+  if(hb&&Math.abs(n.y)<.5){
+    // 横の面 → そのとなりのマスに、上から積む（実物と同じく、横にくっつけたり宙に浮かせたりはしない）
     const ax=Math.floor(p.x+n.x*.5),az=Math.floor(p.z+n.z*.5);
     x=n.x>.5?ax:n.x<-.5?ax-w+1:ax-Math.floor((w-1)/2);
     z=n.z>.5?az:n.z<-.5?az-d+1:az-Math.floor((d-1)/2);
-    x=clampX(x);z=clampZ(z);y=n.y<-.5?hb.y-1:hb.y;fixed=true;
+    x=clampX(x);z=clampZ(z);
+    y=0;for(let i=0;i<w;i++)for(let j=0;j<d;j++)y=Math.max(y,topAt(x+i,z+j));
   }else{
     const cx=Math.floor(p.x),cz=Math.floor(p.z);
     x=clampX(cx-Math.floor((w-1)/2));z=clampZ(cz-Math.floor((d-1)/2));
@@ -649,7 +705,7 @@ const ctl=document.createElement('div');ctl.className='ctl';
 ctl.innerHTML=`<div class="pad"><button data-m="f" style="grid-area:1/2">▲</button><button data-m="l" style="grid-area:2/1">◀</button><button data-m="b" style="grid-area:2/2">▼</button><button data-m="r" style="grid-area:2/3">▶</button></div>
 <div class="acts"><span class="hlabel" id="hLabel"></span><button data-a="place" class="green placebig" id="placeBig">✓ 置く</button>
 <button data-a="rot" class="rotbig" title="回転">⟳ 回す</button>
-<div class="g3"><button data-a="hup" title="1段上">⤒</button><button data-a="hdown" title="1段下">⤓</button><button data-a="cancel" id="cancelBtn">✕</button></div></div>`;
+<div class="g3"><button data-a="cancel" id="cancelBtn" style="grid-column:1/4">✕</button></div></div>`;
 const ctlHint=document.createElement('div');ctlHint.className='ctlhint';ctlHint.textContent='↓ 下のピースをタップしてね';
 ctl.addEventListener('pointerdown',e=>e.stopPropagation());
 ctl.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!CUR)return;
@@ -666,8 +722,7 @@ function curState(c){
   const y=curY(c),V=voxels(S.bricks);let free=y>=0,con=y===0;
   for(let i=0;i<c.w;i++)for(let j=0;j<c.d;j++){const x=c.x+i,z=c.z+j;
     if(V.has(x+','+y+','+z))free=false;
-    if(V.has(x+','+(y-1)+','+z)||V.has(x+','+(y+1)+','+z))con=true;
-    if((i===0&&V.has((x-1)+','+y+','+z))||(i===c.w-1&&V.has((x+1)+','+y+','+z))||(j===0&&V.has(x+','+y+','+(z-1)))||(j===c.d-1&&V.has(x+','+y+','+(z+1))))con=true}
+    if(V.has(x+','+(y-1)+','+z))con=true} // 実物と同じ：下のブロックに少しでも乗っていること
   const invOk=!c.key||!!c.orig||(S.inv[c.key]||0)>0;
   return{x:c.x,y:Math.max(0,y),z:c.z,w:c.w,d:c.d,c:c.c,free,con,invOk,ok:free&&con&&invOk&&y<24};
 }
@@ -731,13 +786,13 @@ function pickUp(b){
   CUR={w:b.w,d:b.d,c:b.c,key:S.mode==='stage'?invKey(b.w,b.d,b.c):null,x:b.x,z:b.z,yOff:0,orig:b};
   CUR.yOff=b.y-dropAt(CUR);if(navigator.vibrate)navigator.vibrate(20);sfx(800,.05);refresh();return true;
 }
-// 指の位置 → 仮置きブロックの位置（ブロックの横の面なら同じ高さで横に）
+// 指の位置 → 仮置きブロックの位置（いつも、そのマスのいちばん上に乗せる）
 function moveCurToHit(h){
   if(!h||!CUR)return;const p=BV.root.worldToLocal(h.point.clone()),n=h.face.normal,hb=h.object.userData.brick;
-  let yT=null;if(hb&&Math.abs(n.y)<.5){p.x+=n.x*.5;p.z+=n.z*.5;yT=hb.y}
+  if(hb&&Math.abs(n.y)<.5){p.x+=n.x*.5;p.z+=n.z*.5} // 横の面を指したら、そのとなりのマスに「上から」置く
   const cx=Math.floor(p.x),cz=Math.floor(p.z);
   CUR.x=cx-Math.floor((CUR.w-1)/2);CUR.z=cz-Math.floor((CUR.d-1)/2);clampCur();
-  CUR.yOff=yT==null?0:yT-dropAt(CUR);if(curY(CUR)<0)CUR.yOff=0;
+  CUR.yOff=0;
   lastCurPos={x:CUR.x,z:CUR.z};drawCursor();
 }
 function touchTap(ev){
