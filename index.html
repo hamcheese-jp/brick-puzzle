@@ -376,7 +376,8 @@ function setBricks(v,bricks){
 // 画面の縦横比に合わせて、全体がちょうど収まるカメラ距離
 function fitDist(v){
   const hY=v.maxY*H,fw=v.fitW||v.W,fd=v.fitD||v.D;const R=.5*Math.sqrt(fw*fw+fd*fd+hY*hY)+.5;
-  const vf=v.camera.fov*Math.PI/180,hf=2*Math.atan(Math.tan(vf/2)*v.camera.aspect);
+  const asp=isFinite(v.camera.aspect)&&v.camera.aspect>0?v.camera.aspect:1; // 画面がまだ見えていない（幅0）ときの計算こわれ防止
+  const vf=v.camera.fov*Math.PI/180,hf=2*Math.atan(Math.tan(vf/2)*asp);
   return R/Math.sin(Math.min(vf,hf)/2)*1.02;
 }
 function frameView(v,maxY){
@@ -396,7 +397,9 @@ function renderLoop(){
   for(const v of [BV,PV,TV]){if(!v||!v.el||!v.el.offsetParent)continue;
     const w=v.el.clientWidth,h=v.el.clientHeight;
     if(w!==v.cw||h!==v.ch){v.cw=w;v.ch=h;v.renderer.setSize(w,h,false);v.camera.aspect=w/h;v.camera.updateProjectionMatrix();
-      if(v.W){const off=v.camera.position.clone().sub(v.controls.target);const d=fitDist(v);off.setLength(d);v.camera.position.copy(v.controls.target).add(off);v.controls.maxDistance=d*3}}
+      if(v.W){const off=v.camera.position.clone().sub(v.controls.target);
+        if(!isFinite(off.x+off.y+off.z)||off.lengthSq()<1e-6)frameView(v); // カメラの位置がこわれていたら、最初の向きからやり直す
+        else{const d=fitDist(v);off.setLength(d);v.camera.position.copy(v.controls.target).add(off);v.controls.maxDistance=d*3}}}
     v.controls.update();v.renderer.render(v.scene,v.camera)}
 }
 
@@ -743,6 +746,13 @@ function drawCursor(){
   const show=touchMode&&S.mode&&!(S.mode==='stage'&&G&&G.done);
   ctl.classList.toggle('show',!!(show&&CUR));ctlHint.classList.toggle('show',!!(show&&!CUR&&S.mode==='stage'));
   if(!CUR||!BV.plateMesh||!show)return;
+  if(CUR.float){
+    // 盤の外：その場で少し浮いた本物のブロック（下に影）
+    curMesh=brickMesh({x:CUR.float.x,y:0,z:CUR.float.z,w:CUR.w,d:CUR.d,c:CUR.c});curMesh.position.y=LIFT;
+    const sh=new THREE.Mesh(new THREE.PlaneGeometry(CUR.w*.95,CUR.d*.95),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:.22,depthWrite:false}));
+    sh.rotation.x=-Math.PI/2;sh.position.set(CUR.w/2,-.29-LIFT,CUR.d/2);curMesh.add(sh);
+    BV.root.add(curMesh);return;
+  }
   const st=curState(CUR);let m;
   if(st.ok){m=ghostMat.ok;m.color.set(PAL[CUR.c])}else m=ghostMat.bad;
   curMesh=brickMesh(st,m);
@@ -771,11 +781,14 @@ function moveCur(dir){
   CUR.x+=dx;CUR.z+=dz;clampCur();lastCurPos={x:CUR.x,z:CUR.z};sfx(560,.025);drawCursor();
 }
 function rotateCur(){
+  if(CUR.float){const cx=CUR.float.x+CUR.w/2,cz=CUR.float.z+CUR.d/2;[CUR.w,CUR.d]=[CUR.d,CUR.w];CUR.float={x:cx-CUR.w/2,z:cz-CUR.d/2};sfx(700,.04);drawCursor();return}
   const cx=CUR.x+CUR.w/2,cz=CUR.z+CUR.d/2;[CUR.w,CUR.d]=[CUR.d,CUR.w];
   CUR.x=Math.round(cx-CUR.w/2);CUR.z=Math.round(cz-CUR.d/2);clampCur();sfx(700,.04);drawCursor();
 }
 function placeCur(){
-  if(!CUR)return;const st=curState(CUR);
+  if(!CUR)return;
+  if(CUR.float){toast('盤の上まで運んでね');sfx(160,.08);return}
+  const st=curState(CUR);
   if(!st.ok){toast(!st.free?'ほかのブロックと重なっています':!st.con?'宙にういています。どこかにくっつけてね':!st.invOk?'このピースはもうありません':'そこには置けません');sfx(160,.12);return}
   if(!CUR.orig)snapshotUndo();
   S.bricks.push({x:st.x,y:st.y,z:st.z,w:st.w,d:st.d,c:st.c});
@@ -799,8 +812,12 @@ function pickUp(b){
   CUR.yOff=b.y-dropAt(CUR);buzz(20);sfx(800,.05);refresh();return true;
 }
 // 指の位置 → 仮置きブロックの位置（いつも、そのマスのいちばん上に乗せる）
+const LIFT=.9; // 盤の外で持ち上げたときの高さ
 function moveCurToHit(h){
   if(!h||!CUR)return;const p=BV.root.worldToLocal(h.point.clone()),n=h.face.normal,hb=h.object.userData.brick;
+  // テーブルの上（盤の外）：マス目に合わせず、指についてくる
+  if(h.object===BV.table){CUR.float={x:p.x-CUR.w/2,z:p.z-CUR.d/2};drawCursor();return}
+  CUR.float=null;
   if(hb&&Math.abs(n.y)<.5){p.x+=n.x*.5;p.z+=n.z*.5} // 横の面を指したら、そのとなりのマスに「上から」置く
   const cx=Math.floor(p.x),cz=Math.floor(p.z);
   CUR.x=cx-Math.floor((CUR.w-1)/2);CUR.z=cz-Math.floor((CUR.d-1)/2);clampCur();
@@ -1008,6 +1025,12 @@ function setTable(on){
   const t=new THREE.Mesh(new THREE.PlaneGeometry(STAGE_PLATE+12,z1+3),new THREE.MeshStandardMaterial({color:'#d8b58a',roughness:.85}));
   t.rotation.x=-Math.PI/2;t.position.set(STAGE_PLATE/2,-.31,(z1+3)/2-3);t.receiveShadow=true;BV.root.add(t);BV.table=t;
 }
+function hitTable(pt){
+  if(!BV.table)return null;
+  const cv=BV.renderer.domElement,r=cv.getBoundingClientRect();
+  ndc.set((pt.clientX-r.left)/r.width*2-1,-(pt.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,BV.camera);
+  BV.root.updateMatrixWorld(true);return ray.intersectObject(BV.table,false)[0]||null;
+}
 function hitPile(pt){
   if(!BV.pileBoxes||!BV.pileBoxes.length)return null;
   const cv=BV.renderer.domElement,r=cv.getBoundingClientRect();
@@ -1025,13 +1048,16 @@ function returnHeld(){
 function pickFromPile(u){
   const prev=CUR?{x:CUR.x,z:CUR.z}:lastCurPos;
   if(CUR){returnHeld();CUR=null}
-  let swap=false;
-  if(u.body){const q=u.body.quaternion,ax=q.vmult(new CANNON.Vec3(1,0,0));if(Math.abs(ax.z)>Math.abs(ax.x))swap=true}
+  let swap=false,at=null;
+  if(u.body){const q=u.body.quaternion,ax=q.vmult(new CANNON.Vec3(1,0,0));if(Math.abs(ax.z)>Math.abs(ax.x))swap=true;at={x:u.body.position.x,z:u.body.position.z}}
   liftUnit(u);u.taken=true;S.inv[u.key]=(S.inv[u.key]||0)-1;
   const w=swap?u.d:u.w,d=swap?u.w:u.d;
   CUR={w,d,c:u.c,key:u.key,unit:u,x:0,z:0,yOff:0,orig:null};
   if(prev){CUR.x=prev.x;CUR.z=prev.z}else{CUR.x=Math.floor((S.W-w)/2);CUR.z=Math.floor((S.D-d)/2)}
-  clampCur();S.sel=u.key;sfx(800,.05);buzz(12);refresh();
+  clampCur();
+  // その場で少し浮き上がる（盤へはなぞって運ぶ）
+  if(at)CUR.float={x:at.x-w/2,z:at.z-d/2};
+  S.sel=u.key;sfx(800,.05);buzz(12);refresh();
 }
 // さっとはらって投げる → 放物線でテーブルへ飛んで、ほかのブロックにぶつかって転がる
 const flying=[];
@@ -1044,7 +1070,7 @@ function throwHeld(vx,vy){
   CUR=null;
   if(unit&&PW){
     // はらった向き（画面の左右）を少し反映させて、置き場のどこかへ放物線で
-    const Z=G.pileZone,sx=st.x+st.w/2,sy=Math.max(st.y*H,0)+1.8,sz=st.z+st.d/2;
+    const Z=G.pileZone,fl=c.float,sx=(fl?fl.x:st.x)+st.w/2,sy=(fl?LIFT:Math.max(st.y*H,0))+1.8,sz=(fl?fl.z:st.z)+st.d/2;
     const tx=Math.max(Z.x0+1,Math.min(Z.x1-1,sx+vx*6+(Math.random()-.5)*3)),tz=Z.z0+(Z.z1-Z.z0)*(.35+Math.random()*.45);
     const T=.6;
     dropUnit(unit,sx,sy,sz,[(tx-sx)/T,(-.3-sy+.5*GRAV*T*T)/T,(tz-sz)/T],[(Math.random()-.5)*16,(Math.random()-.5)*16,(Math.random()-.5)*16]);
@@ -1081,7 +1107,7 @@ window.addEventListener('pointermove',e=>{
   if(!gest||e.pointerId!==gest.pid)return;
   const now=performance.now();gest.pts.push({x:e.clientX,y:e.clientY,t:now});if(gest.pts.length>10)gest.pts.shift();
   if(!gest.moved&&Math.hypot(e.clientX-gest.sx,e.clientY-gest.sy)>10)gest.moved=true;
-  if(gest.moved&&CUR&&touchPts.size<2){const h=hitTest({clientX:e.clientX,clientY:e.clientY-50});if(h)moveCurToHit(h)}
+  if(gest.moved&&CUR&&touchPts.size<2){const pt={clientX:e.clientX,clientY:e.clientY-50};const h=hitTest(pt)||hitTable(pt);if(h)moveCurToHit(h)}
 });
 const gestUp=e=>{
   touchPts.delete(e.pointerId);
