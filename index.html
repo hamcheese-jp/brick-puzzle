@@ -20,6 +20,7 @@
 <meta name="twitter:description" content="見本の3D作品をよく見て、ブロックで同じものを組み立てるパズル。全100ステージ！">
 <meta name="twitter:image" content="https://hamcheese-jp.github.io/brick-puzzle/ogp.png">
 <meta name="theme-color" content="#d01012">
+<link rel="privacy-policy" href="privacy.html">
 <style>
 :root{--bg:#fbf5e6;--panel:#ffffff;--ink:#222;--sub:#6b6458;--line:#e4dac3;--red:#d01012;--blue:#0055bf;--yellow:#f2cd37;--green:#237841}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1c1e23;--panel:#2a2d34;--ink:#eee;--sub:#a9a9a9;--line:#3a3e47}}
@@ -156,6 +157,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
 .work .wt{font-weight:700;margin:4px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .work .btns{display:flex;gap:4px;justify-content:center;margin-top:6px}
 .work .btns button{padding:6px 8px;font-size:13px}
+.footlinks{margin-top:14px}.footlinks a{color:var(--sub)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:99px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:20}
 #toast.show{opacity:1}
 #loadErr{display:none;text-align:center;padding:40px 16px}
@@ -194,6 +196,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
     <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(this)">
   </div>
   <p class="center small">進行状況と作品はこのブラウザに自動保存されます。</p>
+  <p class="center small footlinks"><a href="privacy.html">プライバシーポリシー</a>　｜　<a href="https://github.com/hamcheese-jp/brick-puzzle/issues" target="_blank" rel="noopener">お問い合わせ</a>　｜　© 2026 hamcheese-jp</p>
 </section>
 
 <section id="select" class="screen">
