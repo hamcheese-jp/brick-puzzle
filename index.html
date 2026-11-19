@@ -96,12 +96,21 @@ body.inplay #bgmBtn{display:none}
 .ctl.show{display:flex}
 .ctl button{pointer-events:auto;width:46px;height:46px;padding:0;font-size:21px;border-radius:12px;background:rgba(255,255,255,.93);color:#222}
 .ctl .pad{display:grid;grid-template-columns:46px 46px 46px;grid-template-rows:46px 46px;gap:4px}
-.ctl .acts{display:flex;flex-direction:column;gap:4px;align-items:stretch;width:96px}
-.ctl .g2{display:grid;grid-template-columns:46px 46px;gap:4px}
-.ctl .placebig{width:96px;height:50px;padding:0;font-size:18px;background:var(--green);color:#fff}
+.ctl .acts{display:flex;flex-direction:column;gap:4px;align-items:stretch;width:112px}
+.ctl .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.ctl .g3 button{width:auto;height:40px;font-size:18px}
+.ctl .placebig{width:112px;height:48px;padding:0;font-size:18px;background:var(--green);color:#fff}
+.ctl .rotbig{width:112px;height:44px;font-size:17px;background:#fff3c4}
 .ctl .hlabel{align-self:center}
 .ctl .placebig:disabled{background:#999;opacity:.8}
 .ctl .hlabel{background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:800;border-radius:99px;padding:3px 8px}
+.ctl.blockmode .pad{visibility:hidden}
+.modesw,.gesthint{display:none}
+body.touchmode .modesw{display:flex;position:absolute;left:8px;top:8px;z-index:4;background:rgba(255,255,255,.85);border-radius:12px;padding:3px;gap:3px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.modesw button{padding:7px 10px;font-size:14px;box-shadow:none;background:transparent;color:#333;border-radius:9px}
+.modesw button.on{background:var(--blue);color:#fff;outline:none}
+body.touchmode .gesthint{display:block;position:absolute;left:8px;right:8px;top:52px;z-index:3;text-align:center;font-size:11px;font-weight:700;color:#2a3d55;pointer-events:none;text-shadow:0 1px 0 #fff}
+body.touchmode .buildbox>.lbl{display:none}
 .ctlhint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:none;background:rgba(0,0,0,.6);color:#fff;font-weight:800;border-radius:99px;padding:6px 14px;font-size:14px;pointer-events:none;white-space:nowrap;animation:bob 1.2s ease-in-out infinite}
 .ctlhint.show{display:block}
 @keyframes bob{50%{transform:translate(-50%,5px)}}
@@ -198,7 +207,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
         <button onclick="undo()">↶ もどす</button>
       </div>
       <div class="items" id="invItems"></div>
-      <div class="mhelp">ピースをタップ → 半透明ブロックを指でなぞる／ボタンで動かす → ✓置く ／ 置いたブロックはタップ（仮置き中は長押し）で持ち上げ</div>
+      <div class="mhelp">ピースをタップ → 🧱モードでスワイプして位置合わせ → タップで置く ／ 置いたブロックは長押しで持ち上げ ／ 🎥モードで視点を回す</div>
       <p class="small">ピースを選んで台やブロックをクリック（またはピースを台へドラッグ）。上の面→上に積む、横の面→横にくっつける、下の面→下にぶら下げる。選んだピースをもう一度クリックで向きを変える。何もない所をドラッグで視点回転、右クリックか「外す」でブロックを外す。</p>
     </div>
   </div>
@@ -223,7 +232,7 @@ select{padding:7px;border-radius:10px;border:2px solid var(--line);background:va
       </div>
       <div class="palette" id="colorBtns"></div>
       <div class="items" id="shapeItems"></div>
-      <div class="mhelp">ブロックをタップ → 半透明ブロックを指でなぞる／ボタンで動かす → ✓置く ／ 置いたブロックはタップ（仮置き中は長押し）で持ち上げ</div>
+      <div class="mhelp">ブロックをタップ → 🧱モードでスワイプして位置合わせ → タップで置く ／ 置いたブロックは長押しで持ち上げ ／ 🎥モードで視点を回す</div>
       <div class="bar" style="margin-top:10px">
         <select id="freeSize" onchange="freeResize(+this.value)"><option value="8">8×8</option><option value="12">12×12</option><option value="16" selected>16×16</option><option value="24">24×24</option></select>
         <select id="freePlate" onchange="S.plate=this.value;setPlate(BV,S.W,S.D,S.plate);autosave()">
@@ -315,7 +324,7 @@ function makeView(bg){
   const root=new THREE.Group();scene.add(root);
   return{renderer,scene,camera,controls,root,dl,W:0,D:0,boxes:[],bg:null,maxY:1};
 }
-function attach(v,el){v.el=el;el.appendChild(v.renderer.domElement);v.cw=0;if(v===BV){el.appendChild(ctl);el.appendChild(ctlHint);CUR=null;lastCurPos=null;if(curMesh){v.root.remove(curMesh);curMesh=null}}}
+function attach(v,el){v.el=el;el.appendChild(v.renderer.domElement);v.cw=0;if(v===BV){el.appendChild(ctl);el.appendChild(ctlHint);el.appendChild(modeSw);el.appendChild(gestHint);setCtrlMode('block');CUR=null;lastCurPos=null;if(curMesh){v.root.remove(curMesh);curMesh=null}}}
 function setPlate(v,W,D,color){
   if(v.plate)v.root.remove(v.plate);
   const g=new THREE.Group();const pm=new THREE.MeshStandardMaterial({color,roughness:.55});
@@ -617,7 +626,8 @@ function clearPending(){}
 const ctl=document.createElement('div');ctl.className='ctl';
 ctl.innerHTML=`<div class="pad"><button data-m="f" style="grid-area:1/2">▲</button><button data-m="l" style="grid-area:2/1">◀</button><button data-m="b" style="grid-area:2/2">▼</button><button data-m="r" style="grid-area:2/3">▶</button></div>
 <div class="acts"><span class="hlabel" id="hLabel"></span><button data-a="place" class="green placebig" id="placeBig">✓ 置く</button>
-<div class="g2"><button data-a="hup" title="1段上">⤒</button><button data-a="rot" title="回転">⟳</button><button data-a="hdown" title="1段下">⤓</button><button data-a="cancel" id="cancelBtn">✕</button></div></div>`;
+<button data-a="rot" class="rotbig" title="回転">⟳ 回す</button>
+<div class="g3"><button data-a="hup" title="1段上">⤒</button><button data-a="hdown" title="1段下">⤓</button><button data-a="cancel" id="cancelBtn">✕</button></div></div>`;
 const ctlHint=document.createElement('div');ctlHint.className='ctlhint';ctlHint.textContent='↓ 下のピースをタップしてね';
 ctl.addEventListener('pointerdown',e=>e.stopPropagation());
 ctl.addEventListener('click',e=>{const t=e.target.closest('button');if(!t||!CUR)return;
@@ -722,8 +732,8 @@ function setupInput(){
   cv.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y)>6;const b=down.b;down=null;if(moved)return;
     if(S.mode==='stage'&&G&&G.done)return;const ev={clientX:e.clientX,clientY:e.clientY};
     if(e.pointerType==='mouse'||b===2||S.erase){clearPending();actAt(ev,b===2);if(e.pointerType==='mouse'){lastEv=ev;updateGhost()}return}
-    // タッチ：タップ → 仮置きブロックをそこへ移動（仮置きがなければ、ブロックを持ち上げる）
-    touchTap(ev);});
+    // タッチ（視点モード）：タップ → 仮置きブロックをそこへ移動（仮置きがなければ、ブロックを持ち上げる）
+    if(ctrlMode==='camera')touchTap(ev);});
   BV.controls.addEventListener('change',()=>{if(lastEv&&!down)updateGhost()});
   document.addEventListener('keydown',e=>{if(e.target.tagName==='INPUT')return;
     if(e.key==='r'||e.key==='R')rotateSel();
@@ -793,9 +803,63 @@ window.addEventListener('pointermove',e=>{
 });
 window.addEventListener('pointerup',e=>{if(drag&&e.pointerId===drag.pid)endDrag(e,false)});
 window.addEventListener('pointercancel',e=>{if(drag&&e.pointerId===drag.pid)endDrag(e,true)});
-// 指で仮置きブロックに触れたら、視点回転ではなくブロックを動かす／置いたブロックの長押しで持ち上げる
+// ============ モード切り替え：🧱ブロック操作 ／ 🎥視点 ============
+let ctrlMode='block',gest=null,tapWait=null;const touchPts=new Set();
+const modeSw=document.createElement('div');modeSw.className='modesw';
+modeSw.innerHTML='<button data-mode="block">🧱 ブロック</button><button data-mode="camera">🎥 視点</button>';
+const gestHint=document.createElement('div');gestHint.className='gesthint';
+modeSw.addEventListener('pointerdown',e=>e.stopPropagation());
+modeSw.addEventListener('click',e=>{const b=e.target.closest('button');if(b){setCtrlMode(b.dataset.mode);sfx(660,.03)}});
+function setCtrlMode(m){
+  ctrlMode=m;if(BV)BV.controls.touches.ONE=m==='block'?null:THREE.TOUCH.ROTATE;
+  modeSw.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.mode===m));
+  ctl.classList.toggle('blockmode',m==='block');
+  gestHint.textContent=m==='block'?'スワイプ:移動　タップ:置く　ダブルタップ:回す　長押し:持ち上げ　2本指:視点':'ドラッグ:視点を回す　2本指:ズーム　タップ:そこへ移動';
+}
+function gestEnd(){if(gest){clearTimeout(gest.timer);gest=null}}
+function hitCursor(pt){if(!curMesh)return false;const cv=BV.renderer.domElement,r=cv.getBoundingClientRect();
+  ndc.set((pt.clientX-r.left)/r.width*2-1,-(pt.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,BV.camera);
+  return ray.intersectObjects(curMesh.children.filter(c=>c.isMesh),false).length>0}
+// ブロックモードの1本指ジェスチャー
 document.addEventListener('pointerdown',e=>{
-  if(!BV||e.target!==BV.renderer.domElement||e.pointerType==='mouse'||drag)return;
+  if(!BV||e.target!==BV.renderer.domElement||e.pointerType==='mouse'||ctrlMode!=='block')return;
+  touchPts.add(e.pointerId);
+  if(touchPts.size>1){gestEnd();return} // 2本指は視点操作
+  if(S.mode==='stage'&&G&&G.done)return;
+  const pt={clientX:e.clientX,clientY:e.clientY};
+  gest={pid:e.pointerId,sx:e.clientX,sy:e.clientY,lx:e.clientX,ly:e.clientY,moved:false,long:false,
+    timer:setTimeout(()=>{if(!gest||gest.moved)return;gest.long=true;
+      if(CUR&&hitCursor(pt)){rotateCur();return}
+      const h=hitTest(pt),b=h&&h.object.userData.brick;
+      if(b)pickUp(b);else if(CUR)rotateCur()},450)};
+},true);
+window.addEventListener('pointermove',e=>{
+  if(!gest||e.pointerId!==gest.pid)return;
+  if(!gest.moved&&Math.hypot(e.clientX-gest.sx,e.clientY-gest.sy)>10){gest.moved=true;clearTimeout(gest.timer)}
+  if(!gest.moved||!CUR)return;
+  const STEP=30;let dx=e.clientX-gest.lx,dy=e.clientY-gest.ly;
+  while(Math.abs(dx)>=STEP||Math.abs(dy)>=STEP){
+    if(Math.abs(dx)>=Math.abs(dy)){const s=Math.sign(dx);moveCur(s>0?'r':'l');gest.lx+=s*STEP;dx-=s*STEP}
+    else{const s=Math.sign(dy);moveCur(s<0?'f':'b');gest.ly+=s*STEP;dy-=s*STEP}
+  }
+});
+const gestUp=e=>{
+  touchPts.delete(e.pointerId);
+  if(!gest||e.pointerId!==gest.pid)return;const g=gest;gestEnd();
+  if(e.type==='pointercancel'||g.moved||g.long)return;
+  if(S.mode==='stage'&&G&&G.done)return;
+  if(CUR){ // タップ:置く ／ ダブルタップ:回す
+    const now=Date.now();
+    if(tapWait&&now-tapWait.t<280){clearTimeout(tapWait.timer);tapWait=null;rotateCur();return}
+    tapWait={t:now,timer:setTimeout(()=>{tapWait=null;placeCur()},280)};return}
+  const h=hitTest({clientX:e.clientX,clientY:e.clientY}),b=h&&h.object.userData.brick;
+  if(b)pickUp(b);else cursorFromSel();
+};
+window.addEventListener('pointerup',gestUp);window.addEventListener('pointercancel',gestUp);
+
+// 視点モード：指で仮置きブロックに触れたら動かす／置いたブロックの長押しで持ち上げる
+document.addEventListener('pointerdown',e=>{
+  if(!BV||e.target!==BV.renderer.domElement||e.pointerType==='mouse'||drag||ctrlMode!=='camera')return;
   if(S.mode==='stage'&&G&&G.done)return;
   if(CUR&&curMesh){const cv=BV.renderer.domElement,r=cv.getBoundingClientRect();
     ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,BV.camera);
